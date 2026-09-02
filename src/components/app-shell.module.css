@@ -149,7 +149,7 @@
   margin: 0 auto;
   padding: 6px 8px max(6px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   border-top: 1px solid rgba(49, 92, 43, 0.16);
   background: rgba(248, 250, 245, 0.97);

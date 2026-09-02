@@ -16,6 +16,27 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      account_members: {
+        Row: {
+          account_id: string;
+          user_id: string;
+          role: "OWNER" | "MEMBER";
+          created_at: string;
+        };
+        Insert: Partial<{
+          account_id: string;
+          user_id: string;
+          role: "OWNER" | "MEMBER";
+          created_at: string;
+        }>;
+        Update: Partial<{
+          account_id: string;
+          user_id: string;
+          role: "OWNER" | "MEMBER";
+          created_at: string;
+        }>;
+        Relationships: [];
+      };
       rice_varieties: {
         Row: {
           id: string;
@@ -38,6 +59,93 @@ export type Database = {
           name: string;
           name_kana: string | null;
           is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
+      rule_regions: {
+        Row: {
+          id: string;
+          kind: "COUNTRY" | "PREFECTURE" | "MUNICIPALITY" | "CUSTOM";
+          code: string | null;
+          name: string;
+          parent_region_id: string | null;
+          specificity: number;
+          elevation_min_m: number | string | null;
+          elevation_max_m: number | string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<{
+          id: string;
+          kind: "COUNTRY" | "PREFECTURE" | "MUNICIPALITY" | "CUSTOM";
+          code: string | null;
+          name: string;
+          parent_region_id: string | null;
+          specificity: number;
+          elevation_min_m: number | string | null;
+          elevation_max_m: number | string | null;
+          created_at: string;
+          updated_at: string;
+        }>;
+        Update: Partial<{
+          id: string;
+          kind: "COUNTRY" | "PREFECTURE" | "MUNICIPALITY" | "CUSTOM";
+          code: string | null;
+          name: string;
+          parent_region_id: string | null;
+          specificity: number;
+          elevation_min_m: number | string | null;
+          elevation_max_m: number | string | null;
+          created_at: string;
+          updated_at: string;
+        }>;
+        Relationships: [];
+      };
+      account_variety_rules: {
+        Row: {
+          id: string;
+          account_id: string;
+          variety_id: string;
+          region_id: string | null;
+          harvest_start_temp_c: number | string;
+          harvest_target_temp_c: number | string;
+          harvest_end_temp_c: number | string;
+          accumulation_start_offset_days: number;
+          source_note: string;
+          effective_from: string;
+          effective_to: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<{
+          id: string;
+          account_id: string;
+          variety_id: string;
+          region_id: string | null;
+          harvest_start_temp_c: number | string;
+          harvest_target_temp_c: number | string;
+          harvest_end_temp_c: number | string;
+          accumulation_start_offset_days: number;
+          source_note: string;
+          effective_from: string;
+          effective_to: string | null;
+          created_at: string;
+          updated_at: string;
+        }>;
+        Update: Partial<{
+          id: string;
+          account_id: string;
+          variety_id: string;
+          region_id: string | null;
+          harvest_start_temp_c: number | string;
+          harvest_target_temp_c: number | string;
+          harvest_end_temp_c: number | string;
+          accumulation_start_offset_days: number;
+          source_note: string;
+          effective_from: string;
+          effective_to: string | null;
           created_at: string;
           updated_at: string;
         }>;
@@ -147,6 +255,36 @@ export type Database = {
           harvest_accumulated_temp_c: number | string | null;
           lifecycle_status: "ACTIVE" | "HARVESTED" | "ARCHIVED";
         }>;
+      };
+      save_account_variety_rule: {
+        Args: {
+          p_account_id: string;
+          p_variety_id: string;
+          p_harvest_start_temp_c: number | string;
+          p_harvest_target_temp_c: number | string;
+          p_harvest_end_temp_c: number | string;
+          p_accumulation_start_offset_days: number;
+          p_source_note: string;
+          p_effective_from: string;
+          p_rule_id?: string | null;
+          p_region_id?: string | null;
+          p_effective_to?: string | null;
+        };
+        Returns: Array<Database["public"]["Tables"]["account_variety_rules"]["Row"]>;
+      };
+      list_account_variety_rules: {
+        Args: {
+          p_account_id: string;
+          p_variety_id?: string | null;
+        };
+        Returns: Array<Database["public"]["Tables"]["account_variety_rules"]["Row"]>;
+      };
+      delete_account_variety_rule: {
+        Args: {
+          p_account_id: string;
+          p_rule_id: string;
+        };
+        Returns: boolean;
       };
       get_parcel_candidates: {
         Args: {

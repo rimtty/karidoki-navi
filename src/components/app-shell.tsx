@@ -15,6 +15,12 @@ const navigation = [
     match: (path: string) => path.startsWith("/app/fields") && !path.startsWith("/app/fields/new"),
   },
   { href: "/app/fields/new/1", label: "登録", glyph: "+", match: (path: string) => path.startsWith("/app/fields/new") },
+  {
+    href: "/app/settings/variety-rules",
+    label: "品種ルール",
+    glyph: "⚙",
+    match: (path: string) => path.startsWith("/app/settings/variety-rules"),
+  },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
