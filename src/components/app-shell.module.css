@@ -1,0 +1,146 @@
+.shell {
+  min-height: 100svh;
+  color: var(--ink);
+  background: #eef2e9;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  width: min(100%, 760px);
+  height: 68px;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(49, 92, 43, 0.13);
+  background: rgba(246, 248, 241, 0.94);
+  backdrop-filter: blur(16px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--forest-900);
+  font-size: 0.96rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.brandMark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #dfead5;
+  font-size: 1.05rem;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.previewBadge {
+  padding: 5px 8px;
+  border: 1px solid #c8d8bf;
+  border-radius: 999px;
+  color: #42613e;
+  background: #f1f7ec;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.accountButton {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d0d8ca;
+  border-radius: 50%;
+  color: #587052;
+  background: #f8faf5;
+  cursor: pointer;
+}
+
+.accountButton span {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.63rem;
+}
+
+.content {
+  width: min(100%, 760px);
+  min-height: calc(100svh - 132px);
+  margin: 0 auto;
+  padding: 20px 16px 106px;
+}
+
+.bottomNav {
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: min(100%, 760px);
+  min-height: 64px;
+  margin: 0 auto;
+  padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  border-top: 1px solid rgba(49, 92, 43, 0.16);
+  background: rgba(248, 250, 245, 0.97);
+  box-shadow: 0 -10px 30px rgba(37, 63, 34, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.navItem {
+  min-height: 52px;
+  padding: 4px 3px;
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  border-radius: 11px;
+  color: #70806b;
+  font-size: 0.65rem;
+  font-weight: 750;
+  text-align: center;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.navItem:hover,
+.navItem:focus-visible,
+.active {
+  color: var(--forest-700);
+  background: #e5efde;
+}
+
+.navGlyph {
+  min-height: 22px;
+  font-size: 1.28rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+@media (min-width: 761px) {
+  .shell {
+    background:
+      linear-gradient(90deg, #e4ebdf 0 50%, #eef2e9 50% 100%);
+  }
+
+  .header,
+  .content,
+  .bottomNav {
+    box-shadow: 0 0 40px rgba(48, 72, 43, 0.07);
+  }
+}

@@ -44,6 +44,25 @@ textarea {
   font: inherit;
 }
 
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(104, 145, 82, 0.72);
+  outline-offset: 2px;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+  opacity: 1;
+}
+
 ::selection {
   color: #fff;
   background: var(--forest-700);

@@ -1,0 +1,85 @@
+.notice,
+.fixture {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #d3d9ce;
+  border-radius: 14px;
+  color: #445044;
+  background: #f8faf6;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.noticeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.updated {
+  color: #687467;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.pending {
+  border-color: #cbd3c5;
+  background: #f1f4ed;
+}
+
+.complete {
+  border-color: #b8d6bb;
+  background: #f1f8ee;
+}
+
+.incomplete,
+.stale {
+  border-color: #e2c46d;
+  background: #fffaf0;
+}
+
+.error {
+  border-color: #db9f92;
+  background: #fff4f0;
+}
+
+.fixture {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-color: #c9d9bf;
+  background: #eff6e9;
+  color: #365137;
+}
+
+.fixtureMark {
+  display: inline-grid;
+  min-width: 28px;
+  min-height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  color: #fff;
+  background: #557c4c;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.fixture p {
+  margin: 0;
+}
+
+.compact {
+  padding: 9px 11px;
+  border-radius: 11px;
+}
+
+.compact p {
+  font-size: 0.7rem;
+}
