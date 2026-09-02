@@ -23,6 +23,26 @@ export type DataQuality =
 
 export type Coordinate = [number, number];
 
+export type ParcelMultiPolygon = {
+  type: "MultiPolygon";
+  coordinates: Coordinate[][][];
+};
+
+export type ParcelGeometry = ParcelMultiPolygon;
+
+/** Owner-independent public parcel data consumed by the registration map. */
+export interface ParcelCandidateViewModel {
+  id: string;
+  externalId: string;
+  datasetYear: number;
+  municipalityCode: string;
+  settlementCode: string;
+  landType: number;
+  areaM2: number;
+  geometry: ParcelGeometry;
+  label: string;
+}
+
 export interface FieldRuleViewModel {
   startTempC: number;
   targetTempC: number;

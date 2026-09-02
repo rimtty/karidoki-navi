@@ -7,8 +7,6 @@ import { FixtureNotice } from "@/components/quality-notice";
 import { DataLoadError } from "@/components/data-load-error";
 import { FieldMap } from "./field-map";
 import {
-  DEVELOPMENT_RULE,
-  FIELD_FIXTURES,
   FIXTURE_RICE_VARIETIES,
   PILOT_REGION,
   RICE_VARIETIES,
@@ -16,7 +14,12 @@ import {
   type Coordinate,
   type RiceVariety,
 } from "./fixtures";
-import type { RiceVarietyOption } from "./view-model";
+import { useParcelCandidates } from "./use-parcel-candidates";
+import type {
+  ParcelGeometry,
+  RiceVarietyOption,
+  ParcelCandidateViewModel,
+} from "./view-model";
 import { registerFieldWithSeasonAction } from "@/lib/fields/actions";
 import styles from "./field-registration-view.module.css";
 
@@ -31,6 +34,10 @@ type RegistrationDraft = {
   headingDate: string;
   selectionMode: SelectionMode;
   selectedParcelId: string | null;
+  parcelGeometry: ParcelGeometry | null;
+  parcelExternalId: string | null;
+  parcelDatasetYear: number | null;
+  parcelAreaM2: number | null;
   polygon: Coordinate[];
   idempotencyKey: string;
 };
@@ -42,6 +49,10 @@ const blankDraft: RegistrationDraft = {
   headingDate: "",
   selectionMode: "parcel",
   selectedParcelId: null,
+  parcelGeometry: null,
+  parcelExternalId: null,
+  parcelDatasetYear: null,
+  parcelAreaM2: null,
   polygon: [],
   idempotencyKey: "",
 };
@@ -63,12 +74,37 @@ function isCoordinate(value: unknown): value is Coordinate {
   );
 }
 
+function isParcelGeometry(value: unknown): value is ParcelGeometry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const geometry = value as { type?: unknown; coordinates?: unknown };
+  if (geometry.type !== "MultiPolygon" || !Array.isArray(geometry.coordinates)) {
+    return false;
+  }
+  return geometry.coordinates.every(
+    (polygon) =>
+      Array.isArray(polygon) &&
+      polygon.length > 0 &&
+      polygon.every(
+        (ring) =>
+          Array.isArray(ring) &&
+          ring.length >= 3 &&
+          ring.every(isCoordinate),
+      ),
+  );
+}
+
 function readDraft(value: string): RegistrationDraft | null {
   try {
     const parsed = JSON.parse(value) as Partial<RegistrationDraft>;
     const selectionMode = parsed.selectionMode === "draw" ? "draw" : "parcel";
     const polygon = Array.isArray(parsed.polygon) ? parsed.polygon.filter(isCoordinate) : [];
     const variety = RICE_VARIETIES.includes(parsed.variety as RiceVariety) ? (parsed.variety as RiceVariety) : "";
+    const parcelAreaM2 =
+      typeof parsed.parcelAreaM2 === "number" &&
+      Number.isFinite(parsed.parcelAreaM2) &&
+      parsed.parcelAreaM2 > 0
+        ? parsed.parcelAreaM2
+        : null;
     return {
       fieldName: typeof parsed.fieldName === "string" ? parsed.fieldName : "",
       variety,
@@ -76,6 +112,19 @@ function readDraft(value: string): RegistrationDraft | null {
       headingDate: typeof parsed.headingDate === "string" ? parsed.headingDate : "",
       selectionMode,
       selectedParcelId: typeof parsed.selectedParcelId === "string" ? parsed.selectedParcelId : null,
+      parcelGeometry: isParcelGeometry(parsed.parcelGeometry)
+        ? parsed.parcelGeometry
+        : null,
+      parcelExternalId:
+        typeof parsed.parcelExternalId === "string"
+          ? parsed.parcelExternalId
+          : null,
+      parcelDatasetYear:
+        typeof parsed.parcelDatasetYear === "number" &&
+        Number.isInteger(parsed.parcelDatasetYear)
+          ? parsed.parcelDatasetYear
+          : null,
+      parcelAreaM2,
       polygon,
       idempotencyKey: typeof parsed.idempotencyKey === "string" ? parsed.idempotencyKey : "",
     };
@@ -142,9 +191,17 @@ export function FieldRegistrationView({
   const dataSource = providedSource ?? "fixture";
   const dataError = providedError ?? null;
   const router = useRouter();
+  const {
+    candidates: parcelCandidates,
+    source: parcelDataSource,
+    error: parcelError,
+    loading: parcelLoading,
+    onViewportChange,
+    retry: retryParcelCandidates,
+  } = useParcelCandidates(initialStep === 1);
   const [draft, setDraft] = useState<RegistrationDraft>(() => ({
     ...blankDraft,
-    selectionMode: dataSource === "supabase" ? "draw" : "parcel",
+    selectionMode: "parcel",
   }));
   const [hydrated, setHydrated] = useState(false);
   const [restored, setRestored] = useState(false);
@@ -178,19 +235,30 @@ export function FieldRegistrationView({
   }, [draft, hydrated, saved]);
 
   const selectedParcel = useMemo(
-    () =>
-      (dataSource === "fixture" ? FIELD_FIXTURES : []).find(
-        (field) => field.id === draft.selectedParcelId,
-      ),
-    [dataSource, draft.selectedParcelId],
+    () => parcelCandidates.find((candidate) => candidate.id === draft.selectedParcelId),
+    [draft.selectedParcelId, parcelCandidates],
   );
   const manualArea = useMemo(() => polygonAreaM2(draft.polygon), [draft.polygon]);
-  const areaM2 = selectedParcel?.areaM2 ?? manualArea;
-  const hasSelection = draft.selectionMode === "parcel" ? Boolean(selectedParcel) : draft.polygon.length >= 3;
+  const areaM2 = selectedParcel?.areaM2 ?? draft.parcelAreaM2 ?? manualArea;
+  const hasParcelSelection = Boolean(
+    (selectedParcel ||
+      (draft.parcelGeometry &&
+        draft.parcelExternalId &&
+        draft.parcelDatasetYear)),
+  );
+  const hasSelection =
+    draft.selectionMode === "parcel"
+      ? hasParcelSelection
+      : draft.polygon.length >= 3;
   const selectedVarietyId =
     varieties.some((variety) => variety.id === draft.varietyId)
       ? draft.varietyId
       : varieties.find((variety) => variety.name === draft.variety)?.id || "";
+  const selectedParcelLabel =
+    selectedParcel?.label ??
+    (draft.parcelExternalId
+      ? `筆候補 ${draft.parcelExternalId.slice(0, 8)}`
+      : null);
 
   function goToStep(step: number) {
     router.push(`/app/fields/new/${step}`);
@@ -201,27 +269,44 @@ export function FieldRegistrationView({
       ...current,
       selectionMode: mode,
       selectedParcelId: mode === "draw" ? null : current.selectedParcelId,
+      parcelGeometry: mode === "draw" ? null : current.parcelGeometry,
+      parcelExternalId: mode === "draw" ? null : current.parcelExternalId,
+      parcelDatasetYear: mode === "draw" ? null : current.parcelDatasetYear,
+      parcelAreaM2: mode === "draw" ? null : current.parcelAreaM2,
     }));
   }
 
-  function chooseParcel(fieldId: string) {
+  function chooseParcel(candidate: ParcelCandidateViewModel) {
     setDraft((current) => ({
       ...current,
       selectionMode: "parcel",
-      selectedParcelId: fieldId,
+      selectedParcelId: candidate.id,
+      parcelGeometry: candidate.geometry,
+      parcelExternalId: candidate.externalId,
+      parcelDatasetYear: candidate.datasetYear,
+      parcelAreaM2: candidate.areaM2,
       polygon: [],
     }));
   }
 
   function updatePolygon(polygon: Coordinate[]) {
-    setDraft((current) => ({ ...current, polygon, selectionMode: "draw", selectedParcelId: null }));
+    setDraft((current) => ({
+      ...current,
+      polygon,
+      selectionMode: "draw",
+      selectedParcelId: null,
+      parcelGeometry: null,
+      parcelExternalId: null,
+      parcelDatasetYear: null,
+      parcelAreaM2: null,
+    }));
   }
 
   function discardDraft() {
     window.localStorage.removeItem(DRAFT_STORAGE_KEY);
     setDraft({
       ...blankDraft,
-      selectionMode: dataSource === "supabase" ? "draw" : "parcel",
+      selectionMode: "parcel",
     });
     setRestored(false);
     setSaveError(null);
@@ -238,17 +323,22 @@ export function FieldRegistrationView({
     setDraft((current) => ({ ...current, idempotencyKey }));
 
     try {
-      const polygon = selectedParcel?.polygon ?? draft.polygon;
+      const geometry = selectedParcel?.geometry ?? draft.parcelGeometry;
+      const polygon = selectedParcel ? [] : draft.polygon;
       const result = await registerFieldWithSeasonAction({
         idempotencyKey,
         fieldName: draft.fieldName,
         polygon,
+        geometry,
         year: 2026,
         varietyId: selectedVarietyId,
         headingDate: draft.headingDate || null,
-        parcelSource: selectedParcel ? "MAFF_PARCEL" : "MANUAL",
-        parcelExternalId: selectedParcel?.id ?? null,
-        parcelDatasetVersion: selectedParcel ? "development-2026" : null,
+        parcelSource: geometry ? "MAFF_PARCEL" : "MANUAL",
+        parcelExternalId: selectedParcel?.externalId ?? draft.parcelExternalId,
+        parcelDatasetVersion:
+          geometry && (selectedParcel?.datasetYear ?? draft.parcelDatasetYear)
+            ? String(selectedParcel?.datasetYear ?? draft.parcelDatasetYear)
+            : null,
       });
       if (!result.ok) {
         setSaveError(result.message);
@@ -306,9 +396,9 @@ export function FieldRegistrationView({
             <span className={styles.requiredPill}>必須</span>
           </div>
           <p className={styles.helpText}>
-            {dataSource === "fixture"
+            {parcelDataSource === "fixture"
               ? "開発用の筆候補をタップするか、候補にない場合は手描きで区画を囲みます。"
-              : "地図上を順番にタップして、圃場の外周を囲みます。"}
+              : "筆候補をタップして選ぶか、候補にない場合は手描きで区画を囲みます。"}
           </p>
 
           <div className={styles.modeTabs} role="group" aria-label="区画の選び方">
@@ -322,23 +412,43 @@ export function FieldRegistrationView({
             </button>
           </div>
 
+          {parcelError && (
+            <div className={styles.parcelError} role="alert">
+              <strong>筆候補を表示できません</strong>
+              <p>{parcelError}</p>
+              <button type="button" onClick={retryParcelCandidates}>
+                再試行
+              </button>
+            </div>
+          )}
+          {parcelLoading && !parcelError && (
+            <p className={styles.parcelLoading} role="status">
+              表示範囲の筆候補を読み込み中…
+            </p>
+          )}
+
           <FieldMap
-              fields={draft.selectionMode === "parcel" && dataSource === "fixture" ? FIELD_FIXTURES : []}
-            selectedId={draft.selectedParcelId}
-            onSelect={(field) => chooseParcel(field.id)}
+            parcelCandidates={parcelCandidates}
+            selectedParcelId={draft.selectedParcelId}
+            onSelectParcel={chooseParcel}
+            onViewportChange={onViewportChange}
+            showParcelAttribution
             drawMode={draft.selectionMode === "draw"}
             draftPolygon={draft.polygon}
             onDraftPolygonChange={updatePolygon}
             ariaLabel={draft.selectionMode === "draw" ? "手描き用の地図。タップして点を追加できます。" : "筆候補を選択する地図"}
           />
 
-          {draft.selectionMode === "parcel" && selectedParcel && (
+          {draft.selectionMode === "parcel" && selectedParcelLabel && (
             <div className={styles.selectionSummary} role="status">
               <div>
                 <span>選択中の筆候補</span>
-                <strong>{selectedParcel.name}</strong>
+                <strong>{selectedParcelLabel}</strong>
+                {draft.parcelDatasetYear && (
+                  <small>{draft.parcelDatasetYear}年の公開データ</small>
+                )}
               </div>
-              <span>{selectedParcel.areaM2.toLocaleString("ja-JP")}㎡</span>
+              <span>{areaM2.toLocaleString("ja-JP")}㎡</span>
             </div>
           )}
 
@@ -434,8 +544,8 @@ export function FieldRegistrationView({
           <div className={styles.ruleCallout} role="note">
             <span className={styles.ruleIcon} aria-hidden="true">i</span>
             <div>
-              <strong>適期ルールは登録後に確認します</strong>
-              <p>対象地域・品種の公式ルールは未接続です。現在は判定値を設定しません。</p>
+              <strong>適期ルールは登録時点で固定します</strong>
+              <p>久井町で有効な利用者設定を優先し、なければ公式ルールを確認します。根拠がない場合は未設定のままです。</p>
             </div>
           </div>
           <div className={styles.formActions}>
@@ -465,7 +575,7 @@ export function FieldRegistrationView({
           <dl className={styles.confirmList}>
             <div>
               <dt>区画</dt>
-              <dd>{selectedParcel ? `${selectedParcel.name}（筆候補）` : `手描き区画（${draft.polygon.length}点）`}</dd>
+              <dd>{selectedParcelLabel ? `${selectedParcelLabel}（筆候補）` : `手描き区画（${draft.polygon.length}点）`}</dd>
             </div>
             <div>
               <dt>面積</dt>
@@ -491,8 +601,8 @@ export function FieldRegistrationView({
           <div className={styles.ruleCallout} role="note">
             <span className={styles.ruleIcon} aria-hidden="true">!</span>
             <div>
-              <strong>{DEVELOPMENT_RULE.source}</strong>
-              <p>公式の品種・地域ルール確認後に適用します。温度の仮値はこの登録には保存しません。</p>
+              <strong>適期ルールは登録時点の設定を保存します</strong>
+              <p>有効な利用者設定を優先し、公式ルールが確認できる場合に続けて適用します。根拠がない品種は未設定として保存します。</p>
             </div>
           </div>
           <div className={styles.saveCallout}>

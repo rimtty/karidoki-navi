@@ -13,6 +13,8 @@ import {
   type FieldRuleViewModel,
   type FieldStatus,
   type FieldViewModel,
+  type ParcelCandidateViewModel,
+  type ParcelGeometry,
   type RiceVarietyOption,
 } from "./view-model";
 
@@ -23,6 +25,8 @@ export {
   type FieldRuleViewModel,
   type FieldStatus,
   type FieldViewModel,
+  type ParcelCandidateViewModel,
+  type ParcelGeometry,
   type RiceVarietyOption,
 } from "./view-model";
 
@@ -232,6 +236,27 @@ export const FIELD_FIXTURES: FieldFixture[] = [
     dailyAccumulation: [36, 73, 111, 151, 193, 237, 282, 328, 375, 423, 472, 522],
   },
 ];
+
+/** Development-only parcel candidates used when Supabase is not configured. */
+export const PARCEL_CANDIDATE_FIXTURES: ParcelCandidateViewModel[] =
+  FIELD_FIXTURES.map((field, index) => {
+    const ring = [...field.polygon, field.polygon[0]];
+    const geometry: ParcelGeometry = {
+      type: "MultiPolygon",
+      coordinates: [[ring]],
+    };
+    return {
+      id: field.id,
+      externalId: field.id,
+      datasetYear: 2026,
+      municipalityCode: "34204",
+      settlementCode: `342042400${index + 1}`,
+      landType: 100,
+      areaM2: field.areaM2,
+      geometry,
+      label: field.name,
+    };
+  });
 
 export function getFieldFixture(fieldId: string): FieldFixture | undefined {
   return FIELD_FIXTURES.find((field) => field.id === fieldId);

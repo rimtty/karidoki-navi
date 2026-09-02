@@ -210,6 +210,41 @@
   line-height: 1.65;
 }
 
+.parcelError {
+  padding: 10px 11px;
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d99585;
+  border-radius: 11px;
+  color: #70291f;
+  background: #fff6f2;
+  font-size: 0.71rem;
+}
+
+.parcelError p {
+  color: #80584f;
+  line-height: 1.5;
+}
+
+.parcelError button {
+  justify-self: start;
+  min-height: 36px;
+  margin-top: 2px;
+  padding: 0 10px;
+  border: 1px solid #c57e6e;
+  border-radius: 8px;
+  color: #70291f;
+  background: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.parcelLoading {
+  color: #687868;
+  font-size: 0.7rem;
+}
+
 .modeTabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -7,22 +7,38 @@ import {
   FIELD_STATUS_META,
   PILOT_REGION,
 } from "./fixtures";
-import type { Coordinate, FieldViewModel } from "./view-model";
+import type {
+  Coordinate,
+  FieldViewModel,
+  ParcelCandidateViewModel,
+} from "./view-model";
+import type { ParcelViewport } from "@/lib/fields/parcel-client";
 import styles from "./field-map.module.css";
 
 const FIELDS_SOURCE_ID = "development-fields";
+const PARCEL_SOURCE_ID = "maff-parcel-candidates";
 const DRAFT_SOURCE_ID = "manual-draft";
 const FIELD_FILL_LAYER_ID = "development-fields-fill";
 const FIELD_LINE_LAYER_ID = "development-fields-line";
 const FIELD_LABEL_LAYER_ID = "development-fields-label";
+const PARCEL_FILL_LAYER_ID = "maff-parcel-candidates-fill";
+const PARCEL_LINE_LAYER_ID = "maff-parcel-candidates-line";
+const PARCEL_LABEL_LAYER_ID = "maff-parcel-candidates-label";
+const MAFF_PARCEL_SOURCE_URL =
+  "https://www.maff.go.jp/j/tokei/census/shuraku_data/2025/mb/index.html";
 const DRAFT_FILL_LAYER_ID = "manual-draft-fill";
 const DRAFT_LINE_LAYER_ID = "manual-draft-line";
 const DRAFT_POINT_LAYER_ID = "manual-draft-point";
 
 type MapProps = {
   fields?: FieldViewModel[];
+  parcelCandidates?: ParcelCandidateViewModel[];
   selectedId?: string | null;
+  selectedParcelId?: string | null;
   onSelect?: (field: FieldViewModel) => void;
+  onSelectParcel?: (candidate: ParcelCandidateViewModel) => void;
+  onViewportChange?: (viewport: ParcelViewport) => void;
+  showParcelAttribution?: boolean;
   drawMode?: boolean;
   draftPolygon?: Coordinate[];
   onDraftPolygonChange?: (polygon: Coordinate[]) => void;
@@ -38,15 +54,24 @@ type FieldProperties = {
   selected: boolean;
 };
 
+type ParcelProperties = {
+  id: string;
+  externalId: string;
+  label: string;
+  datasetYear: number;
+  selected: boolean;
+};
+
 type MapGeometry =
   | { type: "Polygon"; coordinates: number[][][] }
+  | { type: "MultiPolygon"; coordinates: number[][][][] }
   | { type: "LineString"; coordinates: number[][] }
   | { type: "Point"; coordinates: number[] };
 
 type MapFeature = {
   type: "Feature";
   id?: string;
-  properties: FieldProperties | null;
+  properties: FieldProperties | ParcelProperties | null;
   geometry: MapGeometry;
 };
 
@@ -74,6 +99,42 @@ function toFieldGeoJson(fields: FieldViewModel[], selectedId: string | null | un
       geometry: {
         type: "Polygon" as const,
         coordinates: [[...field.polygon, field.polygon[0]]],
+      },
+    })),
+  };
+}
+
+function toParcelGeoJson(
+  candidates: ParcelCandidateViewModel[],
+  selectedId: string | null | undefined,
+) {
+  return {
+    type: "FeatureCollection" as const,
+    features: candidates.map((candidate) => ({
+      type: "Feature" as const,
+      id: candidate.id,
+      properties: {
+        id: candidate.id,
+        externalId: candidate.externalId,
+        label:
+          candidate.id === selectedId
+            ? `選択中 ${candidate.label}`
+            : candidate.label,
+        datasetYear: candidate.datasetYear,
+        selected: candidate.id === selectedId,
+      } satisfies ParcelProperties,
+      geometry: {
+        type: "MultiPolygon" as const,
+        coordinates: candidate.geometry.coordinates.map((polygon) =>
+          polygon.map((ring) => {
+            const first = ring[0];
+            const last = ring[ring.length - 1];
+            if (!first) return ring;
+            return last && first[0] === last[0] && first[1] === last[1]
+              ? ring
+              : [...ring, first];
+          }),
+        ),
       },
     })),
   };
@@ -117,8 +178,13 @@ function toDraftGeoJson(polygon: Coordinate[]) {
 
 export function FieldMap({
   fields = [],
+  parcelCandidates = [],
   selectedId = null,
+  selectedParcelId = null,
   onSelect,
+  onSelectParcel,
+  onViewportChange,
+  showParcelAttribution = false,
   drawMode = false,
   draftPolygon = [],
   onDraftPolygonChange,
@@ -128,21 +194,33 @@ export function FieldMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const fieldsRef = useRef(fields);
+  const parcelCandidatesRef = useRef(parcelCandidates);
   const selectedIdRef = useRef(selectedId);
+  const selectedParcelIdRef = useRef(selectedParcelId);
   const drawModeRef = useRef(drawMode);
   const draftPolygonRef = useRef(draftPolygon);
   const onSelectRef = useRef(onSelect);
+  const onSelectParcelRef = useRef(onSelectParcel);
+  const onViewportChangeRef = useRef(onViewportChange);
   const onDraftPolygonChangeRef = useRef(onDraftPolygonChange);
   const [mapError, setMapError] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const fieldGeoJson = useMemo(() => toFieldGeoJson(fields, selectedId), [fields, selectedId]);
+  const parcelGeoJson = useMemo(
+    () => toParcelGeoJson(parcelCandidates, selectedParcelId),
+    [parcelCandidates, selectedParcelId],
+  );
 
   useEffect(() => {
     fieldsRef.current = fields;
+    parcelCandidatesRef.current = parcelCandidates;
     selectedIdRef.current = selectedId;
+    selectedParcelIdRef.current = selectedParcelId;
     drawModeRef.current = drawMode;
     draftPolygonRef.current = draftPolygon;
     onSelectRef.current = onSelect;
+    onSelectParcelRef.current = onSelectParcel;
+    onViewportChangeRef.current = onViewportChange;
     onDraftPolygonChangeRef.current = onDraftPolygonChange;
 
     const map = mapRef.current;
@@ -150,10 +228,25 @@ export function FieldMap({
 
     const fieldSource = map.getSource(FIELDS_SOURCE_ID) as GeoJSONSource | undefined;
     fieldSource?.setData(asSourceData(fieldGeoJson));
+    const parcelSource = map.getSource(PARCEL_SOURCE_ID) as GeoJSONSource | undefined;
+    parcelSource?.setData(asSourceData(parcelGeoJson));
     const draftSource = map.getSource(DRAFT_SOURCE_ID) as GeoJSONSource | undefined;
     draftSource?.setData(asSourceData(toDraftGeoJson(draftPolygon)));
     map.getCanvas().style.cursor = drawMode ? "crosshair" : "";
-  }, [drawMode, draftPolygon, fieldGeoJson, fields, onDraftPolygonChange, onSelect, selectedId]);
+  }, [
+    drawMode,
+    draftPolygon,
+    fieldGeoJson,
+    fields,
+    onDraftPolygonChange,
+    onSelect,
+    onSelectParcel,
+    onViewportChange,
+    parcelCandidates,
+    parcelGeoJson,
+    selectedId,
+    selectedParcelId,
+  ]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -240,6 +333,68 @@ export function FieldMap({
           "text-halo-width": 2,
         },
       });
+      map.addSource(PARCEL_SOURCE_ID, {
+        type: "geojson",
+        data: asSourceData(
+          toParcelGeoJson(parcelCandidatesRef.current, selectedParcelIdRef.current),
+        ),
+      });
+      map.addLayer({
+        id: PARCEL_FILL_LAYER_ID,
+        type: "fill",
+        source: PARCEL_SOURCE_ID,
+        paint: {
+          "fill-color": [
+            "case",
+            ["boolean", ["get", "selected"], false],
+            "#d39b25",
+            "#e8c75d",
+          ],
+          "fill-opacity": [
+            "case",
+            ["boolean", ["get", "selected"], false],
+            0.84,
+            0.45,
+          ],
+        },
+      });
+      map.addLayer({
+        id: PARCEL_LINE_LAYER_ID,
+        type: "line",
+        source: PARCEL_SOURCE_ID,
+        paint: {
+          "line-color": [
+            "case",
+            ["boolean", ["get", "selected"], false],
+            "#6c4c08",
+            "#a77b18",
+          ],
+          "line-width": [
+            "case",
+            ["boolean", ["get", "selected"], false],
+            4,
+            1.5,
+          ],
+          "line-opacity": 0.95,
+        },
+      });
+      map.addLayer({
+        id: PARCEL_LABEL_LAYER_ID,
+        type: "symbol",
+        source: PARCEL_SOURCE_ID,
+        layout: {
+          "text-field": ["concat", ["get", "label"], "\n", ["get", "datasetYear"], "年"],
+          "text-size": 10,
+          "text-font": ["Open Sans Regular"],
+          "text-allow-overlap": false,
+          "text-ignore-placement": false,
+        },
+        paint: {
+          "text-color": "#5c4309",
+          "text-halo-color": "#fffdf2",
+          "text-halo-width": 2,
+        },
+      });
       map.addSource(DRAFT_SOURCE_ID, { type: "geojson", data: asSourceData(toDraftGeoJson(draftPolygonRef.current)) });
       map.addLayer({
         id: DRAFT_FILL_LAYER_ID,
@@ -280,6 +435,20 @@ export function FieldMap({
       map.on("mouseleave", FIELD_FILL_LAYER_ID, () => {
         map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : "";
       });
+      map.on("click", PARCEL_FILL_LAYER_ID, (event: MapLayerMouseEvent) => {
+        if (drawModeRef.current) return;
+        const id = event.features?.[0]?.properties?.id;
+        const candidate = parcelCandidatesRef.current.find(
+          (item) => item.id === id,
+        );
+        if (candidate) onSelectParcelRef.current?.(candidate);
+      });
+      map.on("mouseenter", PARCEL_FILL_LAYER_ID, () => {
+        if (!drawModeRef.current) map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", PARCEL_FILL_LAYER_ID, () => {
+        map.getCanvas().style.cursor = drawModeRef.current ? "crosshair" : "";
+      });
       map.on("click", (event: MapMouseEvent) => {
         if (!drawModeRef.current) return;
         const next = [...draftPolygonRef.current, [event.lngLat.lng, event.lngLat.lat] as Coordinate];
@@ -288,6 +457,17 @@ export function FieldMap({
         const draftSource = map.getSource(DRAFT_SOURCE_ID) as GeoJSONSource | undefined;
         draftSource?.setData(asSourceData(toDraftGeoJson(next)));
       });
+      const reportViewport = () => {
+        const bounds = map.getBounds();
+        onViewportChangeRef.current?.({
+          minLng: bounds.getWest(),
+          minLat: bounds.getSouth(),
+          maxLng: bounds.getEast(),
+          maxLat: bounds.getNorth(),
+        });
+      };
+      map.on("moveend", reportViewport);
+      reportViewport();
       setMapReady(true);
     });
 
@@ -308,6 +488,13 @@ export function FieldMap({
         </span>
         {PILOT_REGION.name}
       </div>
+      {showParcelAttribution && (
+        <div className={styles.parcelAttribution} role="note">
+          <a href={MAFF_PARCEL_SOURCE_URL} target="_blank" rel="noreferrer">
+            農林水産省 筆ポリゴン（2026年）
+          </a>
+        </div>
+      )}
       {!mapReady && !mapError && <div className={styles.mapState}>地図を読み込み中…</div>}
       {mapError && (
         <div className={styles.mapError} role="alert">

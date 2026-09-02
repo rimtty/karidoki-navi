@@ -4,12 +4,18 @@ import { isLocalDate } from "@/domain";
 import { FIELD_FIXTURES } from "@/features/fields/fixtures";
 import { getSupabasePublicConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import type { Coordinate } from "@/features/fields/view-model";
+import type {
+  Coordinate,
+  ParcelGeometry,
+} from "@/features/fields/view-model";
+import type { Json } from "@/lib/supabase/database.types";
 
 export type RegistrationInput = {
   idempotencyKey: string;
   fieldName: string;
   polygon: Coordinate[];
+  /** Selected MAFF candidates are MultiPolygon; manual drawings use polygon. */
+  geometry?: ParcelGeometry | null;
   year: number;
   varietyId: string;
   headingDate: string | null;
@@ -72,6 +78,35 @@ function normalizePolygon(polygon: unknown): Coordinate[] | null {
   return normalized.length >= 3 ? normalized : null;
 }
 
+function normalizeParcelGeometry(value: unknown): ParcelGeometry | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const geometry = value as { type?: unknown; coordinates?: unknown };
+  const polygons =
+    geometry.type === "Polygon"
+      ? [geometry.coordinates]
+      : geometry.type === "MultiPolygon"
+        ? geometry.coordinates
+        : null;
+  if (!Array.isArray(polygons) || polygons.length === 0) return null;
+
+  const normalizedPolygons: Coordinate[][][] = [];
+  for (const polygon of polygons) {
+    if (!Array.isArray(polygon) || polygon.length === 0) return null;
+    const normalizedRings: Coordinate[][] = [];
+    for (const ring of polygon) {
+      const normalizedRing = normalizePolygon(ring);
+      if (!normalizedRing) return null;
+      normalizedRings.push([...normalizedRing, normalizedRing[0]]);
+    }
+    normalizedPolygons.push(normalizedRings);
+  }
+
+  return {
+    type: "MultiPolygon",
+    coordinates: normalizedPolygons,
+  };
+}
+
 function validText(value: unknown, max: number): value is string {
   return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= max;
 }
@@ -102,16 +137,21 @@ export async function registerFieldWithSeasonAction(
     return { ok: false, source, message: REGISTRATION_ERROR };
   }
   const polygon = normalizePolygon(input.polygon);
+  const hasParcelGeometry = input.geometry !== null && input.geometry !== undefined;
+  const parcelGeometry = normalizeParcelGeometry(input.geometry);
   if (
     !validText(input.idempotencyKey, 200) ||
     !validText(input.fieldName, 100) ||
-    !polygon ||
+    (!polygon && !parcelGeometry) ||
+    (hasParcelGeometry && !parcelGeometry) ||
     !Number.isInteger(input.year) ||
     input.year < 2000 ||
     input.year > 2100 ||
     !validText(input.varietyId, 200) ||
     (input.headingDate !== null && !isLocalDate(input.headingDate)) ||
-    (input.parcelSource !== "MAFF_PARCEL" && input.parcelSource !== "MANUAL")
+    (input.parcelSource !== "MAFF_PARCEL" && input.parcelSource !== "MANUAL") ||
+    (parcelGeometry && input.parcelSource !== "MAFF_PARCEL") ||
+    (!parcelGeometry && input.parcelSource !== "MANUAL")
   ) {
     return {
       ok: false,
@@ -130,14 +170,14 @@ export async function registerFieldWithSeasonAction(
       return { ok: false, source: "supabase", message: REGISTRATION_AUTH_ERROR };
     }
 
-    const ring = [...polygon, polygon[0]];
+    const geometryPayload = parcelGeometry ?? {
+      type: "Polygon" as const,
+      coordinates: [[...(polygon as Coordinate[]), (polygon as Coordinate[])[0]]],
+    };
     const { data, error } = await supabase.rpc("register_field_with_season", {
       p_idempotency_key: input.idempotencyKey.trim(),
       p_field_name: input.fieldName.trim(),
-      p_geom_geojson: {
-        type: "Polygon",
-        coordinates: [ring],
-      },
+      p_geom_geojson: geometryPayload as unknown as Json,
       p_year: input.year,
       p_variety_id: input.varietyId,
       p_heading_date: input.headingDate,

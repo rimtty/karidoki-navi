@@ -4,6 +4,8 @@ import {
   type DataQuality,
   type FieldStatus,
   type FieldViewModel,
+  type ParcelCandidateViewModel,
+  type ParcelGeometry,
   type RiceVarietyOption,
 } from "../../features/fields/view-model";
 import type { Database, Json } from "../supabase/database.types";
@@ -21,6 +23,8 @@ export type FieldDetailRpcRow =
   Database["public"]["Functions"]["get_field_detail"]["Returns"][number];
 export type RiceVarietyRpcRow =
   Database["public"]["Tables"]["rice_varieties"]["Row"];
+export type ParcelCandidateRpcRow =
+  Database["public"]["Functions"]["get_parcel_candidates"]["Returns"][number];
 
 export class FieldAdapterError extends Error {
   constructor(message: string) {
@@ -154,6 +158,80 @@ function asPolygon(value: Json, label = "圃場形状"): Coordinate[] {
     }
   }
   throw new FieldAdapterError(`Supabaseの${label}が不正です。`);
+}
+
+function asParcelGeometry(value: Json, label = "筆候補形状"): ParcelGeometry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new FieldAdapterError(`Supabaseの${label}が不正です。`);
+  }
+  const geometry = value as { type?: unknown; coordinates?: unknown };
+  const polygons =
+    geometry.type === "Polygon"
+      ? [geometry.coordinates]
+      : geometry.type === "MultiPolygon"
+        ? geometry.coordinates
+        : null;
+  if (!Array.isArray(polygons) || polygons.length === 0) {
+    throw new FieldAdapterError(`Supabaseの${label}が不正です。`);
+  }
+
+  const normalizedPolygons = polygons.map((polygon) => {
+    if (!Array.isArray(polygon) || polygon.length === 0) {
+      throw new FieldAdapterError(`Supabaseの${label}が不正です。`);
+    }
+    return polygon.map((ring) => normalizeRing(ring, label));
+  });
+
+  return {
+    type: "MultiPolygon",
+    coordinates: normalizedPolygons,
+  };
+}
+
+export function adaptParcelCandidateRow(
+  row: ParcelCandidateRpcRow,
+): ParcelCandidateViewModel {
+  const id = asId(row.candidate_id, "candidate_id");
+  const externalId = asText(row.source_feature_id, "source_feature_id");
+  const datasetYear = asNonNegativeInteger(row.source_year, "筆候補年度");
+  const municipalityCode = asText(row.municipality_code, "自治体コード");
+  const settlementCode = asText(row.settlement_code, "農業集落コード");
+  const landType = asNonNegativeInteger(row.land_type, "地目");
+  const areaM2 = asFiniteNumber(row.area_m2, "筆候補面積");
+
+  if (datasetYear < 2000 || datasetYear > 2100) {
+    throw new FieldAdapterError("Supabaseの筆候補年度が不正です。");
+  }
+  if (!/^\d{5}$/.test(municipalityCode)) {
+    throw new FieldAdapterError("Supabaseの自治体コードが不正です。");
+  }
+  if (!/^\d{10}$/.test(settlementCode)) {
+    throw new FieldAdapterError("Supabaseの農業集落コードが不正です。");
+  }
+  if (landType !== 100 && landType !== 200) {
+    throw new FieldAdapterError("Supabaseの地目が不正です。");
+  }
+  if (areaM2 <= 0) {
+    throw new FieldAdapterError("Supabaseの筆候補面積が不正です。");
+  }
+
+  return {
+    id,
+    externalId,
+    datasetYear,
+    municipalityCode,
+    settlementCode,
+    landType,
+    areaM2,
+    geometry: asParcelGeometry(row.geom_geojson),
+    label: `筆候補 ${externalId.slice(0, 8)}`,
+  };
+}
+
+export function adaptParcelCandidateRows(
+  rows: readonly ParcelCandidateRpcRow[],
+): ParcelCandidateViewModel[] {
+  return rows.map(adaptParcelCandidateRow);
 }
 
 function mapStatus(

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   adaptFieldDetailRow,
   adaptFieldMapRow,
+  adaptParcelCandidateRow,
   adaptRiceVarietyRows,
   FieldAdapterError,
 } from "../../src/lib/fields/adapters";
@@ -156,5 +157,74 @@ describe("rice variety adapter", () => {
       "コシヒカリ",
       "ヒノヒカリ",
     ]);
+  });
+});
+
+describe("parcel candidate adapter", () => {
+  it("normalizes all Polygon parts while exposing only public reference fields", () => {
+    const candidate = adaptParcelCandidateRow({
+      candidate_id: "candidate-1",
+      source_import_id: "import-1",
+      source_year: 2026,
+      source_feature_id: "parcel-001",
+      municipality_code: "34204",
+      settlement_code: "3420424001",
+      land_type: 100,
+      area_m2: "987.65",
+      geom_geojson: {
+        type: "MultiPolygon",
+        coordinates: [
+          [
+            [
+              [133, 34.5],
+              [133.001, 34.5],
+              [133.001, 34.501],
+              [133, 34.501],
+              [133, 34.5],
+            ],
+          ],
+          [
+            [
+              [133.002, 34.5],
+              [133.003, 34.5],
+              [133.003, 34.501],
+              [133.002, 34.501],
+              [133.002, 34.5],
+            ],
+          ],
+        ],
+      },
+    });
+
+    expect(candidate).toMatchObject({
+      id: "candidate-1",
+      externalId: "parcel-001",
+      datasetYear: 2026,
+      municipalityCode: "34204",
+      settlementCode: "3420424001",
+      landType: 100,
+      areaM2: 987.65,
+      label: "筆候補 parcel-0",
+    });
+    expect(candidate.geometry.type).toBe("MultiPolygon");
+    expect(candidate.geometry.coordinates).toHaveLength(2);
+    expect(candidate.geometry.coordinates[0]?.[0]).toHaveLength(4);
+    expect(candidate).not.toHaveProperty("ownerId");
+  });
+
+  it("rejects a candidate outside the configured municipality contract", () => {
+    expect(() =>
+      adaptParcelCandidateRow({
+        candidate_id: "candidate-1",
+        source_import_id: "import-1",
+        source_year: 2026,
+        source_feature_id: "parcel-001",
+        municipality_code: "3420",
+        settlement_code: "3410024001",
+        land_type: 100,
+        area_m2: 10,
+        geom_geojson: polygon,
+      }),
+    ).toThrow(FieldAdapterError);
   });
 });
