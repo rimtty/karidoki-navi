@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+dist/
+build/
+coverage/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases and caches
+*.sqlite
+*.sqlite3
+.cache/
+.turbo/
+
+# Downloaded source data and generated geospatial files
+data/raw/
+data/generated/
+*.fgb
+*.mbtiles
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Deployment providers
+.vercel/
+.wrangler/
+
+# Local scratch space
+work/
+tmp/
