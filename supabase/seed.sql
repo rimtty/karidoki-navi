@@ -1,0 +1,1 @@
+-- Seed data will be added after the pilot region and initial rice varieties are confirmed.

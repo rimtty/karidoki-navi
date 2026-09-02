@@ -24,7 +24,28 @@ AI、収量予測、病害予測、衛星画像、NDVI、水管理、農薬・�
 
 ## ステータス
 
-現在は実装計画策定段階です。最初に気象庁データ取得と筆ポリゴン配信の技術検証を行い、その結果を確定仕様へ反映します。
+MVPの実装基盤を準備中です。最初に気象庁データ取得と筆ポリゴン配信の技術検証を行い、その結果を確定仕様へ反映します。
+
+## ローカル開発
+
+前提として、Node.jsとpnpmを使用します。
+
+```bash
+pnpm install
+cp .env.example .env.local
+pnpm dev
+```
+
+ブラウザで`http://localhost:3000`を開きます。実際の認証情報や秘密鍵をGitへコミットしないでください。
+
+Supabaseを含むローカル環境にはDockerが必要です。
+
+```bash
+pnpm exec supabase start
+pnpm exec supabase db reset
+```
+
+DB変更は`supabase/migrations/`へ追加し、Dashboard上で本番テーブルを直接変更しません。
 
 ## 想定データソース
 
