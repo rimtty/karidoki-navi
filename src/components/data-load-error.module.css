@@ -1,0 +1,37 @@
+.notice {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #db9f92;
+  border-radius: 14px;
+  color: #683d34;
+  background: #fff4f0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.notice strong {
+  font-size: 0.82rem;
+}
+
+.notice p {
+  margin: 0;
+}
+
+.notice button {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #bc7667;
+  border-radius: 9px;
+  color: #683d34;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.notice button:hover,
+.notice button:focus-visible {
+  background: #ffebe5;
+}

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { requireSupabasePublicConfig } from "./config";
+import type { Database } from "./database.types";
 
 /**
  * Create a request-scoped server client. The auth session is persisted in
@@ -10,7 +11,7 @@ export async function createClient() {
   const { url, publishableKey } = requireSupabasePublicConfig();
   const cookieStore = await cookies();
 
-  return createServerClient(url, publishableKey, {
+  return createServerClient<Database>(url, publishableKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

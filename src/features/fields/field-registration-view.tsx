@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FixtureNotice } from "@/components/quality-notice";
+import { DataLoadError } from "@/components/data-load-error";
 import { FieldMap } from "./field-map";
 import {
   DEVELOPMENT_RULE,
   FIELD_FIXTURES,
+  FIXTURE_RICE_VARIETIES,
   PILOT_REGION,
   RICE_VARIETIES,
   formatDate,
   type Coordinate,
   type RiceVariety,
 } from "./fixtures";
+import type { RiceVarietyOption } from "./view-model";
+import { registerFieldWithSeasonAction } from "@/lib/fields/actions";
 import styles from "./field-registration-view.module.css";
 
 const DRAFT_STORAGE_KEY = "karidoki-navi:field-registration-draft";
@@ -23,19 +27,23 @@ type SelectionMode = "parcel" | "draw";
 type RegistrationDraft = {
   fieldName: string;
   variety: RiceVariety | "";
+  varietyId: string;
   headingDate: string;
   selectionMode: SelectionMode;
   selectedParcelId: string | null;
   polygon: Coordinate[];
+  idempotencyKey: string;
 };
 
 const blankDraft: RegistrationDraft = {
   fieldName: "",
   variety: "",
+  varietyId: "",
   headingDate: "",
   selectionMode: "parcel",
   selectedParcelId: null,
   polygon: [],
+  idempotencyKey: "",
 };
 
 const steps = [
@@ -64,10 +72,12 @@ function readDraft(value: string): RegistrationDraft | null {
     return {
       fieldName: typeof parsed.fieldName === "string" ? parsed.fieldName : "",
       variety,
+      varietyId: typeof parsed.varietyId === "string" ? parsed.varietyId : "",
       headingDate: typeof parsed.headingDate === "string" ? parsed.headingDate : "",
       selectionMode,
       selectedParcelId: typeof parsed.selectedParcelId === "string" ? parsed.selectedParcelId : null,
       polygon,
+      idempotencyKey: typeof parsed.idempotencyKey === "string" ? parsed.idempotencyKey : "",
     };
   } catch {
     return null;
@@ -110,12 +120,38 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
   );
 }
 
-export function FieldRegistrationView({ initialStep }: { initialStep: number }) {
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `field-registration-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function FieldRegistrationView({
+  initialStep,
+  varieties: providedVarieties,
+  dataSource: providedSource,
+  dataError: providedError,
+}: {
+  initialStep: number;
+  varieties?: RiceVarietyOption[];
+  dataSource?: "supabase" | "fixture";
+  dataError?: string | null;
+}) {
+  const varieties = providedVarieties ?? FIXTURE_RICE_VARIETIES;
+  const dataSource = providedSource ?? "fixture";
+  const dataError = providedError ?? null;
   const router = useRouter();
-  const [draft, setDraft] = useState<RegistrationDraft>(blankDraft);
+  const [draft, setDraft] = useState<RegistrationDraft>(() => ({
+    ...blankDraft,
+    selectionMode: dataSource === "supabase" ? "draw" : "parcel",
+  }));
   const [hydrated, setHydrated] = useState(false);
   const [restored, setRestored] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savePending, setSavePending] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savePendingRef = useRef(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -142,12 +178,19 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
   }, [draft, hydrated, saved]);
 
   const selectedParcel = useMemo(
-    () => FIELD_FIXTURES.find((field) => field.id === draft.selectedParcelId),
-    [draft.selectedParcelId],
+    () =>
+      (dataSource === "fixture" ? FIELD_FIXTURES : []).find(
+        (field) => field.id === draft.selectedParcelId,
+      ),
+    [dataSource, draft.selectedParcelId],
   );
   const manualArea = useMemo(() => polygonAreaM2(draft.polygon), [draft.polygon]);
   const areaM2 = selectedParcel?.areaM2 ?? manualArea;
   const hasSelection = draft.selectionMode === "parcel" ? Boolean(selectedParcel) : draft.polygon.length >= 3;
+  const selectedVarietyId =
+    varieties.some((variety) => variety.id === draft.varietyId)
+      ? draft.varietyId
+      : varieties.find((variety) => variety.name === draft.variety)?.id || "";
 
   function goToStep(step: number) {
     router.push(`/app/fields/new/${step}`);
@@ -176,18 +219,50 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
 
   function discardDraft() {
     window.localStorage.removeItem(DRAFT_STORAGE_KEY);
-    setDraft(blankDraft);
+    setDraft({
+      ...blankDraft,
+      selectionMode: dataSource === "supabase" ? "draw" : "parcel",
+    });
     setRestored(false);
+    setSaveError(null);
   }
 
-  function saveRegistration() {
-    setSaved(true);
-    window.localStorage.removeItem(DRAFT_STORAGE_KEY);
-    window.localStorage.setItem(
-      "karidoki-navi:last-registration",
-      JSON.stringify({ name: draft.fieldName || "新しい圃場", variety: draft.variety, savedAt: new Date().toISOString() }),
-    );
-    router.push("/app");
+  async function saveRegistration() {
+    if (savePendingRef.current || !hasSelection || !draft.fieldName.trim() || !draft.variety || !selectedVarietyId) {
+      return;
+    }
+    const idempotencyKey = draft.idempotencyKey || createIdempotencyKey();
+    savePendingRef.current = true;
+    setSavePending(true);
+    setSaveError(null);
+    setDraft((current) => ({ ...current, idempotencyKey }));
+
+    try {
+      const polygon = selectedParcel?.polygon ?? draft.polygon;
+      const result = await registerFieldWithSeasonAction({
+        idempotencyKey,
+        fieldName: draft.fieldName,
+        polygon,
+        year: 2026,
+        varietyId: selectedVarietyId,
+        headingDate: draft.headingDate || null,
+        parcelSource: selectedParcel ? "MAFF_PARCEL" : "MANUAL",
+        parcelExternalId: selectedParcel?.id ?? null,
+        parcelDatasetVersion: selectedParcel ? "development-2026" : null,
+      });
+      if (!result.ok) {
+        setSaveError(result.message);
+        return;
+      }
+      setSaved(true);
+      window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      router.push(`/app/fields/${result.fieldId}`);
+    } catch {
+      setSaveError("圃場を登録できませんでした。通信状態を確認して再試行してください。");
+    } finally {
+      savePendingRef.current = false;
+      setSavePending(false);
+    }
   }
 
   return (
@@ -218,7 +293,8 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
         </div>
       )}
 
-      <FixtureNotice compact />
+      {dataError && <DataLoadError message={dataError} />}
+      {dataSource === "fixture" && <FixtureNotice compact />}
 
       {initialStep === 1 && (
         <section className={styles.panel} aria-labelledby="select-heading">
@@ -230,7 +306,9 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
             <span className={styles.requiredPill}>必須</span>
           </div>
           <p className={styles.helpText}>
-            開発用の筆候補をタップするか、候補にない場合は手描きで区画を囲みます。
+            {dataSource === "fixture"
+              ? "開発用の筆候補をタップするか、候補にない場合は手描きで区画を囲みます。"
+              : "地図上を順番にタップして、圃場の外周を囲みます。"}
           </p>
 
           <div className={styles.modeTabs} role="group" aria-label="区画の選び方">
@@ -245,7 +323,7 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
           </div>
 
           <FieldMap
-            fields={draft.selectionMode === "parcel" ? FIELD_FIXTURES : []}
+              fields={draft.selectionMode === "parcel" && dataSource === "fixture" ? FIELD_FIXTURES : []}
             selectedId={draft.selectedParcelId}
             onSelect={(field) => chooseParcel(field.id)}
             drawMode={draft.selectionMode === "draw"}
@@ -327,11 +405,22 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
             </label>
             <label>
               <span>品種 <em>必須</em></span>
-              <select value={draft.variety} onChange={(event) => setDraft((current) => ({ ...current, variety: event.target.value as RiceVariety }))}>
+              <select
+                value={draft.variety}
+                onChange={(event) => {
+                  const variety = event.target.value as RiceVariety | "";
+                  const option = varieties.find((candidate) => candidate.name === variety);
+                  setDraft((current) => ({
+                    ...current,
+                    variety,
+                    varietyId: option?.id ?? "",
+                  }));
+                }}
+              >
                 <option value="">品種を選択してください</option>
-                {RICE_VARIETIES.map((variety) => (
-                  <option value={variety} key={variety}>
-                    {variety}
+                {varieties.map((variety) => (
+                  <option value={variety.name} key={variety.id}>
+                    {variety.name}
                   </option>
                 ))}
               </select>
@@ -353,7 +442,7 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
             <button className={styles.secondaryAction} type="button" onClick={() => goToStep(1)}>
               <span aria-hidden="true">←</span> 区画選択へ
             </button>
-            <button className={styles.primaryAction} type="button" onClick={() => goToStep(3)} disabled={!hasSelection || !draft.fieldName.trim() || !draft.variety}>
+            <button className={styles.primaryAction} type="button" onClick={() => goToStep(3)} disabled={!hasSelection || !draft.fieldName.trim() || !draft.variety || !selectedVarietyId}>
               確認へ <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -369,9 +458,10 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
             </div>
             <span className={styles.progressHint}>保存前の確認</span>
           </div>
-          {(!hasSelection || !draft.fieldName.trim() || !draft.variety) && (
+          {(!hasSelection || !draft.fieldName.trim() || !draft.variety || !selectedVarietyId) && (
             <p className={styles.inlineWarning} role="alert">未入力の項目があります。前のステップで確認してください。</p>
           )}
+          {saveError && <p className={styles.inlineWarning} role="alert">{saveError}</p>}
           <dl className={styles.confirmList}>
             <div>
               <dt>区画</dt>
@@ -413,14 +503,18 @@ export function FieldRegistrationView({ initialStep }: { initialStep: number }) 
             <button className={styles.secondaryAction} type="button" onClick={() => goToStep(2)}>
               <span aria-hidden="true">←</span> 入力へ戻る
             </button>
-            <button className={styles.primaryAction} type="button" onClick={saveRegistration} disabled={!hasSelection || !draft.fieldName.trim() || !draft.variety}>
-              保存して地図へ <span aria-hidden="true">→</span>
+            <button className={styles.primaryAction} type="button" onClick={saveRegistration} disabled={!hasSelection || !draft.fieldName.trim() || !draft.variety || !selectedVarietyId || savePending}>
+              {savePending ? "保存中…" : "保存して詳細へ"} <span aria-hidden="true">→</span>
             </button>
           </div>
         </section>
       )}
 
-      <p className={styles.footerNote}>入力内容はこの端末の開発用保存領域にのみ保存されます。</p>
+      <p className={styles.footerNote}>
+        {dataSource === "fixture"
+          ? "入力内容はこの端末の開発用保存領域にのみ保存されます。"
+          : "入力途中の内容はこの端末に一時保存され、登録時にSupabaseへ送信されます。"}
+      </p>
     </div>
   );
 }

@@ -68,6 +68,59 @@
   cursor: pointer;
 }
 
+.accountMenu {
+  position: relative;
+}
+
+.accountButton::-webkit-details-marker {
+  display: none;
+}
+
+.accountPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  min-width: 170px;
+  padding: 12px;
+  display: grid;
+  gap: 9px;
+  border: 1px solid #d0d8ca;
+  border-radius: 12px;
+  background: #f8faf5;
+  box-shadow: 0 10px 24px rgba(37, 63, 34, 0.14);
+}
+
+.accountPanel p {
+  margin: 0;
+  color: #687467;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.accountPanel button {
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid #c4d4bd;
+  border-radius: 9px;
+  color: #315c2b;
+  background: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.accountPanel button:hover,
+.accountPanel button:focus-visible {
+  background: #edf5e9;
+}
+
+.accountPanel [role="alert"] {
+  margin: 0;
+  color: #9b493c;
+  font-size: 0.65rem;
+}
+
 .accountButton span {
   display: grid;
   width: 20px;

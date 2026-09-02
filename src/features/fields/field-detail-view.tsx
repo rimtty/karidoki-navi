@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FieldMap } from "./field-map";
 import {
   FIELD_STATUS_META,
   formatDate,
   formatTemp,
-  type FieldFixture,
 } from "./fixtures";
+import type { FieldViewModel } from "./view-model";
 import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
+import { DataLoadError } from "@/components/data-load-error";
 import { StatusBadge } from "@/components/status-badge";
+import { registerHarvestAction } from "@/lib/fields/actions";
 import styles from "./field-detail-view.module.css";
 
 function AccumulationChart({ values }: { values: number[] }) {
@@ -41,11 +44,21 @@ function AccumulationChart({ values }: { values: number[] }) {
   );
 }
 
-export function FieldDetailView({ field }: { field: FieldFixture }) {
+function FieldDetailContent({
+  field,
+  dataSource,
+}: {
+  field: FieldViewModel;
+  dataSource: "supabase" | "fixture";
+}) {
+  const router = useRouter();
   const [showHarvest, setShowHarvest] = useState(false);
-  const [harvestDate, setHarvestDate] = useState("2026-09-03");
-  const [harvested, setHarvested] = useState(false);
+  const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "2026-09-03");
+  const [harvested, setHarvested] = useState(Boolean(field.harvestDate));
   const [notice, setNotice] = useState<string | null>(null);
+  const [harvestError, setHarvestError] = useState<string | null>(null);
+  const [harvestPending, setHarvestPending] = useState(false);
+  const harvestPendingRef = useRef(false);
   const rule = field.rule;
   const chartValues = field.dailyAccumulation;
   const statusMeta = FIELD_STATUS_META[field.status];
@@ -57,15 +70,44 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
     return "登熟中です。積算値は目安として確認してください。";
   }, [field.status]);
 
-  function registerHarvest() {
-    if (!harvestDate) return;
-    window.localStorage.setItem(
-      `karidoki-navi:harvested:${field.id}`,
-      JSON.stringify({ harvestDate, accumulatedTempC: field.accumulatedTempC }),
-    );
-    setHarvested(true);
-    setShowHarvest(false);
-    setNotice(`${formatDate(harvestDate)}の収穫を記録しました。`);
+  async function registerHarvest() {
+    if (!harvestDate || harvestPendingRef.current) return;
+    harvestPendingRef.current = true;
+    setHarvestPending(true);
+    setHarvestError(null);
+
+    try {
+      if (dataSource === "supabase") {
+        if (!field.seasonId) {
+          setHarvestError("この年度の作付けが見つかりません。登録内容を確認してください。");
+          return;
+        }
+        const result = await registerHarvestAction({
+          cropSeasonId: field.seasonId,
+          harvestDate,
+          accumulatedTempC: field.accumulatedTempC,
+        });
+        if (!result.ok) {
+          setHarvestError(result.message);
+          return;
+        }
+      } else {
+        window.localStorage.setItem(
+          `karidoki-navi:harvested:${field.id}`,
+          JSON.stringify({ harvestDate, accumulatedTempC: field.accumulatedTempC }),
+        );
+      }
+
+      setHarvested(true);
+      setShowHarvest(false);
+      setNotice(`${formatDate(harvestDate)}の収穫を記録しました。`);
+      if (dataSource === "supabase") router.refresh();
+    } catch {
+      setHarvestError("収穫を登録できませんでした。通信状態を確認して再試行してください。");
+    } finally {
+      harvestPendingRef.current = false;
+      setHarvestPending(false);
+    }
   }
 
   return (
@@ -87,7 +129,7 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
         <StatusBadge status={harvested ? "harvested" : field.status} />
       </header>
 
-      <FixtureNotice />
+      {dataSource === "fixture" && <FixtureNotice />}
 
       {notice && (
         <div className={styles.successNotice} role="status">
@@ -145,7 +187,7 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
             <p className={styles.cardKicker}>APPLIED RULE</p>
             <h2 id="rule-heading">適用ルール</h2>
           </div>
-          <span className={styles.devPill}>開発用</span>
+          {dataSource === "fixture" && <span className={styles.devPill}>開発用</span>}
         </div>
         {rule ? (
           <>
@@ -258,6 +300,7 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
             </button>
           </div>
           <p className={styles.harvestHelp}>収穫日と、その時点の積算値を履歴として保存します。</p>
+          {harvestError && <p className={styles.inlineWarning} role="alert">{harvestError}</p>}
           <label className={styles.dateField}>
             <span>収穫日</span>
             <input type="date" value={harvestDate} onChange={(event) => setHarvestDate(event.target.value)} />
@@ -270,8 +313,8 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
             <button className={styles.secondaryAction} type="button" onClick={() => setShowHarvest(false)}>
               キャンセル
             </button>
-            <button className={styles.primaryAction} type="button" onClick={registerHarvest} disabled={!harvestDate}>
-              登録する
+            <button className={styles.primaryAction} type="button" onClick={registerHarvest} disabled={!harvestDate || harvestPending}>
+              {harvestPending ? "登録中…" : "登録する"}
             </button>
           </div>
         </div>
@@ -280,4 +323,27 @@ export function FieldDetailView({ field }: { field: FieldFixture }) {
       <p className={styles.disclaimer}>成熟状態は補助情報です。圃場の状態、乾燥条件、地域の指針なども確認してください。</p>
     </div>
   );
+}
+
+export function FieldDetailView({
+  field,
+  dataSource: providedSource,
+  dataError: providedError,
+}: {
+  field: FieldViewModel | null;
+  dataSource?: "supabase" | "fixture";
+  dataError?: string | null;
+}) {
+  const dataSource = providedSource ?? "fixture";
+  const dataError = providedError ?? null;
+  if (!field) {
+    return (
+      <div className={styles.screen}>
+        <DataLoadError
+          message={dataError ?? "圃場が見つかりません。一覧から選び直してください。"}
+        />
+      </div>
+    );
+  }
+  return <FieldDetailContent field={field} dataSource={dataSource} />;
 }

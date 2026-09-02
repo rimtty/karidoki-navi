@@ -1,8 +1,8 @@
 import {
   DATA_QUALITY_META,
   formatDate,
-  type DataQuality,
 } from "@/features/fields/fixtures";
+import type { DataQuality } from "@/features/fields/view-model";
 import { QualityBadge } from "./status-badge";
 import styles from "./quality-notice.module.css";
 

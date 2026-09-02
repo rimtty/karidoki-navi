@@ -1,9 +1,8 @@
 import {
   DATA_QUALITY_META,
   FIELD_STATUS_META,
-  type DataQuality,
-  type FieldStatus,
 } from "@/features/fields/fixtures";
+import type { DataQuality, FieldStatus } from "@/features/fields/view-model";
 import styles from "./status-badge.module.css";
 
 export function StatusBadge({ status }: { status: FieldStatus }) {

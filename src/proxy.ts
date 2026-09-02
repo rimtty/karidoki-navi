@@ -22,7 +22,10 @@ function redirectToLogin(request: NextRequest, response: NextResponse) {
 export async function proxy(request: NextRequest) {
   const session = await updateSupabaseSession(request);
 
-  if (isProtectedAppPath(request.nextUrl.pathname) && !session.user) {
+  // With no Supabase configuration the app deliberately runs in its
+  // development-fixture mode. Once configured, protected routes require a
+  // validated Supabase user; RPC loaders then enforce row ownership again.
+  if (session.configured && isProtectedAppPath(request.nextUrl.pathname) && !session.user) {
     return redirectToLogin(request, session.response);
   }
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { LogoutButton } from "@/features/auth/logout-button";
 import styles from "./app-shell.module.css";
 
 const navigation = [
@@ -30,9 +31,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <div className={styles.headerMeta}>
           <span className={styles.previewBadge}>開発プレビュー</span>
-          <Link className={styles.accountButton} href="/login" aria-label="ログイン画面を開く">
-            <span aria-hidden="true">○</span>
-          </Link>
+          <details className={styles.accountMenu}>
+            <summary className={styles.accountButton} aria-label="アカウントメニュー">
+              <span aria-hidden="true">○</span>
+            </summary>
+            <div className={styles.accountPanel}>
+              <p>ログイン中のアカウント</p>
+              <LogoutButton />
+            </div>
+          </details>
         </div>
       </header>
 

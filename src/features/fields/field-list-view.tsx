@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
+import { DataLoadError } from "@/components/data-load-error";
 import { StatusBadge } from "@/components/status-badge";
 import {
   FIELD_FIXTURES,
   FIELD_STATUS_META,
   formatTemp,
-  type FieldStatus,
 } from "./fixtures";
+import type { FieldStatus, FieldViewModel } from "./view-model";
 import styles from "./field-list-view.module.css";
 
 const sortOrder: Record<FieldStatus, number> = {
@@ -28,14 +29,25 @@ const filterOptions: Array<{ value: "all" | FieldStatus; label: string }> = [
   { value: "not-configured", label: "未設定" },
 ];
 
-export function FieldListView() {
+export function FieldListView({
+  initialFields: providedFields,
+  dataSource: providedSource,
+  dataError: providedError,
+}: {
+  initialFields?: FieldViewModel[];
+  dataSource?: "supabase" | "fixture";
+  dataError?: string | null;
+}) {
+  const initialFields = providedFields ?? FIELD_FIXTURES;
+  const dataSource = providedSource ?? "fixture";
+  const dataError = providedError ?? null;
   const [filter, setFilter] = useState<(typeof filterOptions)[number]["value"]>("all");
   const fields = useMemo(
     () =>
-      FIELD_FIXTURES.filter((field) => filter === "all" || field.status === filter).sort(
+      initialFields.filter((field) => filter === "all" || field.status === filter).sort(
         (left, right) => sortOrder[left.status] - sortOrder[right.status],
       ),
-    [filter],
+    [filter, initialFields],
   );
 
   return (
@@ -51,7 +63,8 @@ export function FieldListView() {
         </Link>
       </header>
 
-      <FixtureNotice compact />
+      {dataError && <DataLoadError message={dataError} />}
+      {dataSource === "fixture" && <FixtureNotice compact />}
 
       <div className={styles.toolbar}>
         <label>
@@ -112,7 +125,9 @@ export function FieldListView() {
       </section>
 
       <p className={styles.disclaimer}>
-        表示中の状態と温度は開発用フィクスチャです。実際の収穫判断には使用しないでください。
+        {dataSource === "fixture"
+          ? "表示中の状態と温度は開発用フィクスチャです。実際の収穫判断には使用しないでください。"
+          : "表示中の状態と温度は補助情報です。実際の収穫判断には使用しないでください。"}
       </p>
     </div>
   );

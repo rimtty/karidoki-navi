@@ -54,6 +54,14 @@ begin
      ) then
     raise exception 'anon must not execute registration RPC';
   end if;
+
+  if has_function_privilege(
+       'anon',
+       'public.register_harvest(uuid,date,numeric)',
+       'execute'
+     ) then
+    raise exception 'anon must not execute harvest RPC';
+  end if;
 end;
 $$;
 
@@ -182,6 +190,35 @@ begin
   where id = result.field_id;
   if actual_account <> owner_account then
     raise exception 'field account was not derived from auth.uid()';
+  end if;
+end;
+$$;
+
+-- The field owner may record a harvest through the dedicated RPC.
+create temporary table harvest_result (
+  crop_season_id uuid,
+  harvest_date date,
+  harvest_accumulated_temp_c numeric(8, 2),
+  lifecycle_status public.season_lifecycle_status
+);
+insert into harvest_result
+select *
+from public.register_harvest(
+  (select crop_season_id from registration_result),
+  '2026-09-03'::date,
+  1_045.25
+);
+
+do $$
+declare
+  result harvest_result%rowtype;
+begin
+  select * into result from harvest_result;
+  if result.crop_season_id is null
+     or result.harvest_date <> '2026-09-03'::date
+     or result.harvest_accumulated_temp_c <> 1_045.25
+     or result.lifecycle_status <> 'HARVESTED' then
+    raise exception 'owner harvest registration did not persist';
   end if;
 end;
 $$;
@@ -338,6 +375,18 @@ begin
   if field_count <> 0 or map_count <> 0 or detail_count <> 0 then
     raise exception 'cross-user field access was not denied';
   end if;
+
+  begin
+    perform public.register_harvest(
+      (select crop_season_id from registration_result),
+      '2026-09-04'::date,
+      1_050
+    );
+    raise exception 'cross-user harvest registration was accepted';
+  exception
+    when sqlstate '42501' then
+      null;
+  end;
 end;
 $$;
 

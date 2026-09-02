@@ -6,52 +6,29 @@
  * already connected. Any temperature threshold below is a demo value only.
  */
 
-export type FieldStatus =
-  | "ready"
-  | "soon"
-  | "growing"
-  | "overdue"
-  | "not-configured"
-  | "harvested";
+import {
+  CONFIRMED_RICE_VARIETY_NAMES,
+  type Coordinate,
+  type DataQuality,
+  type FieldRuleViewModel,
+  type FieldStatus,
+  type FieldViewModel,
+  type RiceVarietyOption,
+} from "./view-model";
 
-export type DataQuality =
-  | "pending"
-  | "complete"
-  | "incomplete"
-  | "stale"
-  | "error";
+export {
+  CONFIRMED_RICE_VARIETY_NAMES,
+  type Coordinate,
+  type DataQuality,
+  type FieldRuleViewModel,
+  type FieldStatus,
+  type FieldViewModel,
+  type RiceVarietyOption,
+} from "./view-model";
 
-export type Coordinate = [number, number];
-
-export interface DevelopmentRule {
-  startTempC: number;
-  targetTempC: number;
-  endTempC: number;
-  accumulationOffsetDays: number;
-  label: string;
-  source: string;
-}
-
-export interface FieldFixture {
-  id: string;
-  name: string;
-  variety: string | null;
-  areaM2: number;
-  polygon: Coordinate[];
-  headingDate: string | null;
-  accumulationStartDate: string | null;
-  accumulatedTempC: number | null;
-  remainingTempC: number | null;
-  referenceDays: number | null;
-  status: FieldStatus;
-  dataQuality: DataQuality;
-  observedThrough: string | null;
-  weatherStation: string | null;
-  missingDays: number;
-  dataNote?: string;
-  rule: DevelopmentRule | null;
-  dailyAccumulation: number[];
-}
+/** Compatibility alias for development-only fixture callers. */
+export type DevelopmentRule = FieldRuleViewModel;
+export type FieldFixture = FieldViewModel;
 
 export const PILOT_REGION = {
   name: "広島県三原市久井町",
@@ -71,13 +48,12 @@ export const DEVELOPMENT_RULE: DevelopmentRule = {
   source: "公式の品種・地域ルール未接続",
 };
 
-export const RICE_VARIETIES = [
-  "コシヒカリ",
-  "あきさかり",
-  "あきろまん",
-  "ヒノヒカリ",
-  "恋の予感",
-] as const;
+export const RICE_VARIETIES = CONFIRMED_RICE_VARIETY_NAMES;
+
+/** Stable IDs keep the unconfigured registration flow deterministic. */
+export const FIXTURE_RICE_VARIETIES: RiceVarietyOption[] = RICE_VARIETIES.map(
+  (name, index) => ({ id: `fixture-variety-${index + 1}`, name }),
+);
 
 export type RiceVariety = (typeof RICE_VARIETIES)[number];
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getFieldFixture } from "@/features/fields/fixtures";
 import { FieldDetailView } from "@/features/fields/field-detail-view";
+import { loadFieldDetailData } from "@/lib/fields/server";
 
 type FieldDetailPageProps = {
   params: Promise<{ fieldId: string }>;
@@ -8,13 +8,19 @@ type FieldDetailPageProps = {
 
 export async function generateMetadata({ params }: FieldDetailPageProps) {
   const { fieldId } = await params;
-  const field = getFieldFixture(fieldId);
-  return { title: field ? field.name : "田んぼ詳細" };
+  const result = await loadFieldDetailData(fieldId, 2026);
+  return { title: result.data ? result.data.name : "田んぼ詳細" };
 }
 
 export default async function FieldDetailPage({ params }: FieldDetailPageProps) {
   const { fieldId } = await params;
-  const field = getFieldFixture(fieldId);
-  if (!field) notFound();
-  return <FieldDetailView field={field} />;
+  const result = await loadFieldDetailData(fieldId, 2026);
+  if (!result.error && !result.data) notFound();
+  return (
+    <FieldDetailView
+      field={result.data}
+      dataSource={result.source}
+      dataError={result.error}
+    />
+  );
 }

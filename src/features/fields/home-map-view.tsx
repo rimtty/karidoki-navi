@@ -9,10 +9,11 @@ import {
   PILOT_REGION,
   formatDate,
   formatTemp,
-  type FieldFixture,
   type FieldStatus,
 } from "./fixtures";
+import type { FieldViewModel } from "./view-model";
 import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
+import { DataLoadError } from "@/components/data-load-error";
 import { StatusBadge } from "@/components/status-badge";
 import styles from "./home-map-view.module.css";
 
@@ -25,11 +26,11 @@ const filterOptions: Array<{ key: Filter; label: string }> = [
   { key: "not-configured", label: "未設定" },
 ];
 
-function countFor(status: FieldStatus): number {
-  return FIELD_FIXTURES.filter((field) => field.status === status).length;
+function countFor(fields: FieldViewModel[], status: FieldStatus): number {
+  return fields.filter((field) => field.status === status).length;
 }
 
-function FieldSheet({ field, onClose }: { field: FieldFixture; onClose: () => void }) {
+function FieldSheet({ field, onClose }: { field: FieldViewModel; onClose: () => void }) {
   return (
     <section className={styles.sheet} aria-label={`${field.name}の概要`} aria-live="polite">
       <div className={styles.sheetHandle} aria-hidden="true" />
@@ -82,7 +83,18 @@ function FieldSheet({ field, onClose }: { field: FieldFixture; onClose: () => vo
   );
 }
 
-export function HomeMapView() {
+export function HomeMapView({
+  initialFields: providedFields,
+  dataSource: providedSource,
+  dataError: providedError,
+}: {
+  initialFields?: FieldViewModel[];
+  dataSource?: "supabase" | "fixture";
+  dataError?: string | null;
+}) {
+  const initialFields = providedFields ?? FIELD_FIXTURES;
+  const dataSource = providedSource ?? "fixture";
+  const dataError = providedError ?? null;
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [registrationMessage, setRegistrationMessage] = useState<string | null>(null);
@@ -110,8 +122,11 @@ export function HomeMapView() {
   }, []);
 
   const visibleFields = useMemo(
-    () => (filter === "all" ? FIELD_FIXTURES : FIELD_FIXTURES.filter((field) => field.status === filter)),
-    [filter],
+    () =>
+      filter === "all"
+        ? initialFields
+        : initialFields.filter((field) => field.status === filter),
+    [filter, initialFields],
   );
   const selectedField = selectedId ? visibleFields.find((field) => field.id === selectedId) : undefined;
 
@@ -149,7 +164,8 @@ export function HomeMapView() {
         </div>
       )}
 
-      <FixtureNotice />
+      {dataError && <DataLoadError message={dataError} />}
+      {dataSource === "fixture" && <FixtureNotice />}
 
       <section className={styles.statusSection} aria-labelledby="status-heading">
         <div className={styles.sectionTitleRow}>
@@ -161,7 +177,10 @@ export function HomeMapView() {
         </div>
         <div className={styles.filters} role="group" aria-label="状態で絞り込む">
           {filterOptions.map((option) => {
-            const count = option.key === "all" ? FIELD_FIXTURES.length : countFor(option.key);
+            const count =
+              option.key === "all"
+                ? initialFields.length
+                : countFor(initialFields, option.key);
             const active = filter === option.key;
             return (
               <button
@@ -194,7 +213,7 @@ export function HomeMapView() {
           fields={visibleFields}
           selectedId={selectedId}
           onSelect={(field) => setSelectedId(field.id)}
-          ariaLabel="開発用圃場マップ。圃場を選択できます。"
+          ariaLabel={`${dataSource === "fixture" ? "開発用" : "圃場"}マップ。圃場を選択できます。`}
         />
         <div className={styles.legend} aria-label="状態の凡例">
           {(["ready", "soon", "growing", "overdue", "not-configured"] as FieldStatus[]).map((status) => (

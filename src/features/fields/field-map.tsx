@@ -6,9 +6,8 @@ import type { GeoJSONSource, Map as MapLibreMap, MapLayerMouseEvent, MapMouseEve
 import {
   FIELD_STATUS_META,
   PILOT_REGION,
-  type Coordinate,
-  type FieldFixture,
 } from "./fixtures";
+import type { Coordinate, FieldViewModel } from "./view-model";
 import styles from "./field-map.module.css";
 
 const FIELDS_SOURCE_ID = "development-fields";
@@ -21,9 +20,9 @@ const DRAFT_LINE_LAYER_ID = "manual-draft-line";
 const DRAFT_POINT_LAYER_ID = "manual-draft-point";
 
 type MapProps = {
-  fields?: FieldFixture[];
+  fields?: FieldViewModel[];
   selectedId?: string | null;
-  onSelect?: (field: FieldFixture) => void;
+  onSelect?: (field: FieldViewModel) => void;
   drawMode?: boolean;
   draftPolygon?: Coordinate[];
   onDraftPolygonChange?: (polygon: Coordinate[]) => void;
@@ -59,7 +58,7 @@ function asSourceData(data: MapGeoJson): SourceData {
   return data as unknown as SourceData;
 }
 
-function toFieldGeoJson(fields: FieldFixture[], selectedId: string | null | undefined) {
+function toFieldGeoJson(fields: FieldViewModel[], selectedId: string | null | undefined) {
   return {
     type: "FeatureCollection" as const,
     features: fields.map((field) => ({
