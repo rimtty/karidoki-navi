@@ -45,3 +45,40 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  e2e:
+    name: Mobile E2E (local Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start local Supabase
+        # Supabase prints local service keys during startup. Keep its output
+        # out of the CI log; run-local.mjs reads status in memory instead.
+        run: pnpm exec supabase start > /tmp/karidoki-supabase-start.log 2>&1
+
+      - name: Run mobile E2E
+        run: pnpm e2e:local
+
+      - name: Stop local Supabase
+        if: always()
+        run: pnpm exec supabase stop --no-backup > /tmp/karidoki-supabase-stop.log 2>&1 || true

@@ -7,6 +7,8 @@ out/
 dist/
 build/
 coverage/
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Local environment and secrets
