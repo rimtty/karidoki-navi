@@ -42,9 +42,23 @@ JMAの地点JSONは10分値を含むため、1日8ファイルを取得してJST
 `crop_season`ごとに `recalculate_crop_season_summary` RPCを呼び、日別値から積算・欠測数・
 データ状態・成熟状態を冪等に再生成します。
 
+運用上の上限は、1回あたり地点100件、訂正範囲60日、地点リクエストの本文32KiBです。
+JMAの各JSON取得は15秒でタイムアウトし、Function全体にも120秒の実行予算を設けています。
+失敗した地点は実行履歴へ記録し、レスポンスにはsecretやサービスキーを含めません。
+
 Edge Functionは `UPDATE_WEATHER_CRON_SECRET` を必須とし、`Authorization: Bearer ...` が
-一致しない呼出しを拒否します。SupabaseのサービスキーとこのsecretはFunction/Vaultへ登録し、
-Git、SQL、ブラウザへ出しません。
+一致しない呼出しを拒否します。このFunctionだけはカスタムBearerを使うため、Supabase
+GatewayのJWT検証を無効にしてデプロイします。
+
+```sh
+supabase functions deploy update-weather --no-verify-jwt
+```
+
+リポジトリの `supabase/config.toml` にも `[functions.update-weather] verify_jwt = false` を
+記録しています。GatewayでJWT検証を無効にする範囲はこのFunctionだけに限定し、Function内で
+secretを先に検証します。CronからはサービスロールJWTをBearerにしません。Supabaseのサービス
+キーと `UPDATE_WEATHER_CRON_SECRET` はFunction/Vaultへ登録し、Git、SQL、ブラウザ、レスポンスへ
+出しません。
 
 ## 手動CSVへの切替
 
@@ -67,6 +81,8 @@ CSVをGitへコミットしたり、ブラウザから直接テーブルへ書�
 
 本番CronのSQLテンプレートは [`supabase/cron/update-weather.sql`](../supabase/cron/update-weather.sql)
 です。これはmigrationではなく、全スケジュール文をコメントアウトした承認待ちの成果物です。
+`update-weather`を上記の `--no-verify-jwt` 付きでデプロイし、VaultのURLと同じ
+`UPDATE_WEATHER_CRON_SECRET`を登録してから、テンプレートのコメントを外して実行します。
 pg_cronがUTC実行の場合、06:30 JST（UTC 21:30）、12:30 JST（UTC 03:30）、週次訂正（月曜
 07:00 JST、UTC日曜22:00）を設定します。VaultへURLとBearer secretを登録してから、親タスクの
 最終承認後に個別実行してください。自動で本番cronを有効化するmigrationはありません。

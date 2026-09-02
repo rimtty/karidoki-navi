@@ -129,8 +129,10 @@ begin
       null,
       0,
       0,
-      case when v_harvest_date is null then 'NOT_CONFIGURED' else 'HARVESTED' end,
-      'PENDING',
+      (
+        case when v_harvest_date is null then 'NOT_CONFIGURED' else 'HARVESTED' end
+      )::public.maturity_status,
+      'PENDING'::public.data_status,
       null,
       pg_catalog.now(),
       null
@@ -193,7 +195,9 @@ begin
   elsif v_as_of_date < v_start_date then
     v_maturity := 'BEFORE_HEADING';
   elsif v_start_temp <= 0 then
-    v_maturity := case when v_accumulated <= v_end_temp then 'HARVEST_READY' else 'OVERDUE' end;
+    v_maturity := (
+      case when v_accumulated <= v_end_temp then 'HARVEST_READY' else 'OVERDUE' end
+    )::public.maturity_status;
   elsif v_accumulated / v_start_temp < 0.7 then
     v_maturity := 'GROWING';
   elsif v_accumulated / v_start_temp < 0.9 then

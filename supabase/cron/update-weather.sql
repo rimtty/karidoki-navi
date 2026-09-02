@@ -7,7 +7,10 @@
 --      karidoki_navi_project_url
 --      karidoki_navi_update_weather_secret
 --    2つ目はEdge Functionの UPDATE_WEATHER_CRON_SECRET と同じランダム値にする。
--- 2. update-weather Functionをデプロイし、Function secretにも同じ値を登録する。
+-- 2. update-weather Functionを次のとおりデプロイし、Function secretにも同じ値を登録する。
+--      supabase functions deploy update-weather --no-verify-jwt
+--    カスタムBearerはGatewayのJWTではないため、verify_jwt=falseをこのFunctionだけに設定する。
+--    リポジトリのsupabase/config.tomlにも同じ設定を記録している。
 -- 3. 下記のコメントを確認してから、各 cron.schedule を個別に実行する。
 --
 -- pg_cronはUTCで実行する。06:30 JST = 21:30 UTC (前日)、12:30 JST = 03:30 UTC、
@@ -18,6 +21,8 @@
 -- create extension if not exists pg_net with schema extensions;
 
 -- 以下は有効化時にコメントを外す。URLやBearer値をSQLへ直書きしない。
+-- AuthorizationヘッダーはUPDATE_WEATHER_CRON_SECRET用のカスタムBearerであり、
+-- Supabaseのservice-role JWTではない。Function側が検証した後にservice-roleでDBへ接続する。
 -- do $$
 -- begin
 --   perform cron.unschedule(jobid)

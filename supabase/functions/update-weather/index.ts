@@ -22,6 +22,14 @@ import {
 const LOCATION_PROVIDER = "JMA_AMEDAS";
 const DEFAULT_BACKFILL_DAYS = 60;
 const MAX_CORRECTION_DAYS = 60;
+const MAX_LOCATION_IDS = 100;
+const MAX_LOCATION_COUNT = 100;
+const MAX_REQUEST_BODY_BYTES = 32 * 1024;
+const MAX_PROVIDER_RANGE_DAYS = 7;
+const PROVIDER_TIMEOUT_MS = 15_000;
+const SUPABASE_DB_TIMEOUT_MS = 10_000;
+const MAX_RUN_DURATION_MS = 120_000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
@@ -46,6 +54,13 @@ interface RunError {
   message: string;
 }
 
+class RequestValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RequestValidationError";
+  }
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -57,17 +72,81 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function safeErrorMessage(error: unknown): string {
+  let message = errorMessage(error);
+  for (const name of [
+    "UPDATE_WEATHER_CRON_SECRET",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_SECRET_KEY",
+  ]) {
+    const value = Deno.env.get(name);
+    if (value) message = message.replaceAll(value, "[redacted]");
+  }
+  return message.slice(0, 2_000);
+}
+
 function asRequest(value: unknown): UpdateWeatherRequest {
-  if (value === null || typeof value !== "object") return {};
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new RequestValidationError("request body must be a JSON object");
+  }
   const body = value as Record<string, unknown>;
-  const locationIds = Array.isArray(body.locationIds)
-    ? body.locationIds.filter((value): value is string => typeof value === "string")
-    : undefined;
-  const correctionDays =
-    typeof body.correctionDays === "number" && Number.isInteger(body.correctionDays)
-      ? body.correctionDays
-      : undefined;
-  const asOfDate = typeof body.asOfDate === "string" ? assertLocalDate(body.asOfDate, "asOfDate") : undefined;
+  let locationIds: string[] | undefined;
+  if (body.locationIds !== undefined) {
+    if (
+      !Array.isArray(body.locationIds) ||
+      body.locationIds.length === 0 ||
+      body.locationIds.length > MAX_LOCATION_IDS
+    ) {
+      throw new RequestValidationError(
+        `locationIds must contain 1 to ${MAX_LOCATION_IDS} values`,
+      );
+    }
+    const normalized = body.locationIds.map((value) => {
+      if (
+        typeof value !== "string" ||
+        value.trim().length === 0 ||
+        value.length > 100 ||
+        !UUID_PATTERN.test(value.trim())
+      ) {
+        throw new RequestValidationError(
+          "locationIds must contain non-empty strings of at most 100 characters",
+        );
+      }
+      return value.trim();
+    });
+    locationIds = [...new Set(normalized)];
+  }
+
+  let correctionDays: number | undefined;
+  if (body.correctionDays !== undefined) {
+    if (
+      typeof body.correctionDays !== "number" ||
+      !Number.isInteger(body.correctionDays) ||
+      body.correctionDays < 1 ||
+      body.correctionDays > MAX_CORRECTION_DAYS
+    ) {
+      throw new RequestValidationError(
+        `correctionDays must be an integer from 1 to ${MAX_CORRECTION_DAYS}`,
+      );
+    }
+    correctionDays = body.correctionDays;
+  }
+
+  if (body.retryOnly !== undefined && typeof body.retryOnly !== "boolean") {
+    throw new RequestValidationError("retryOnly must be a boolean");
+  }
+
+  let asOfDate: LocalDate | undefined;
+  if (body.asOfDate !== undefined) {
+    if (typeof body.asOfDate !== "string") {
+      throw new RequestValidationError("asOfDate must be an ISO date");
+    }
+    asOfDate = assertLocalDate(body.asOfDate, "asOfDate");
+    if (asOfDate < "2000-01-01" || asOfDate > "2100-12-31") {
+      throw new RequestValidationError("asOfDate must be between 2000-01-01 and 2100-12-31");
+    }
+  }
+
   return {
     locationIds,
     retryOnly: body.retryOnly === true,
@@ -82,10 +161,14 @@ function compactRanges(dates: readonly LocalDate[]): Array<{ from: LocalDate; to
   const ranges: Array<{ from: LocalDate; to: LocalDate }> = [];
   let from = sorted[0];
   let previous = sorted[0];
+  let rangeLength = 1;
   for (const date of sorted.slice(1)) {
-    if (addLocalDays(previous, 1) !== date) {
+    if (addLocalDays(previous, 1) !== date || rangeLength >= MAX_PROVIDER_RANGE_DAYS) {
       ranges.push({ from, to: previous });
       from = date;
+      rangeLength = 1;
+    } else {
+      rangeLength += 1;
     }
     previous = date;
   }
@@ -93,35 +176,129 @@ function compactRanges(dates: readonly LocalDate[]): Array<{ from: LocalDate; to
   return ranges;
 }
 
+function asNonEmptyString(value: unknown, label: string, maxLength: number): string {
+  if (typeof value !== "string") {
+    throw new Error(`${label} must be a string`);
+  }
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length > maxLength) {
+    throw new Error(`${label} must contain 1 to ${maxLength} characters`);
+  }
+  return normalized;
+}
+
+function asOptionalNumber(value: unknown, label: string): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`${label} must be a finite number`);
+  return parsed;
+}
+
+function pointFromGeometry(value: unknown): { latitude: number; longitude: number } {
+  let geometry = value;
+  if (typeof geometry === "string") {
+    try {
+      geometry = JSON.parse(geometry) as unknown;
+    } catch {
+      throw new Error("weather location geometry must be valid GeoJSON");
+    }
+  }
+  if (
+    geometry === null ||
+    typeof geometry !== "object" ||
+    Array.isArray(geometry)
+  ) {
+    throw new Error("weather location geometry must be a GeoJSON Point");
+  }
+  const record = geometry as Record<string, unknown>;
+  if (record.type !== "Point" || !Array.isArray(record.coordinates) || record.coordinates.length < 2) {
+    throw new Error("weather location geometry must be a GeoJSON Point");
+  }
+  const [longitude, latitude] = record.coordinates;
+  if (
+    typeof longitude !== "number" ||
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180 ||
+    typeof latitude !== "number" ||
+    !Number.isFinite(latitude) ||
+    latitude < -90 ||
+    latitude > 90
+  ) {
+    throw new Error("weather location geometry coordinates are out of range");
+  }
+
+  const crs = record.crs;
+  if (crs !== undefined && crs !== null) {
+    const crsName =
+      typeof crs === "object" && crs !== null && !Array.isArray(crs)
+        ? (crs as Record<string, unknown>).properties
+        : null;
+    const name =
+      typeof crsName === "object" && crsName !== null && !Array.isArray(crsName)
+        ? (crsName as Record<string, unknown>).name
+        : null;
+    const normalizedName = typeof name === "string" ? name.trim().toUpperCase() : "";
+    if (!["EPSG:4326", "URN:OGC:DEF:CRS:EPSG::4326"].includes(normalizedName)) {
+      throw new Error("weather location geometry must use EPSG:4326");
+    }
+  }
+
+  return { latitude, longitude };
+}
+
 function locationFromRow(row: Record<string, unknown>): WeatherLocationRow {
   const metadata =
     row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? (row.metadata as Record<string, unknown>)
       : {};
-  // Location coordinates are not needed for a point request, but a valid
-  // neutral location keeps the provider boundary explicit. The station list
-  // metadata is authoritative when nearest-station selection is used.
-  const externalId = String(row.external_id ?? "");
+  const id = asNonEmptyString(row.id, "weather location id", 100);
+  const provider = asNonEmptyString(row.provider, "weather location provider", 40);
+  if (provider !== LOCATION_PROVIDER) throw new Error("weather location provider is not supported");
+  const externalId = asNonEmptyString(row.external_id, "weather station id", 20);
+  if (!/^\d{5}$/.test(externalId)) throw new Error("weather station id must contain five digits");
+  const name = asNonEmptyString(row.name, "weather location name", 100);
+  const { latitude, longitude } = pointFromGeometry(row.location);
+  const elevationM = asOptionalNumber(row.elevation_m, "weather location elevation");
+  if (elevationM !== null && (elevationM < -1_000 || elevationM > 10_000)) {
+    throw new Error("weather location elevation is out of range");
+  }
   return {
-    id: String(row.id ?? ""),
+    id,
     provider: LOCATION_PROVIDER,
     externalId,
-    name: String(row.name ?? externalId),
-    latitude: typeof row.latitude === "number" ? row.latitude : 0,
-    longitude: typeof row.longitude === "number" ? row.longitude : 0,
-    elevationM: typeof row.elevation_m === "number" ? row.elevation_m : null,
+    name,
+    latitude,
+    longitude,
+    elevationM,
     metadata,
   };
 }
 
 async function readJsonBody(request: Request): Promise<UpdateWeatherRequest> {
   const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/json")) return {};
-  try {
-    return asRequest(await request.json());
-  } catch {
-    throw new Error("request body must be valid JSON");
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    const parsedLength = Number(contentLength);
+    if (!Number.isInteger(parsedLength) || parsedLength < 0 || parsedLength > MAX_REQUEST_BODY_BYTES) {
+      throw new RequestValidationError(`request body must be at most ${MAX_REQUEST_BODY_BYTES} bytes`);
+    }
   }
+  const rawBody = await request.text();
+  if (rawBody.trim().length === 0) return {};
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new RequestValidationError("request body must use application/json");
+  }
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BODY_BYTES) {
+    throw new RequestValidationError(`request body must be at most ${MAX_REQUEST_BODY_BYTES} bytes`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawBody) as unknown;
+  } catch {
+    throw new RequestValidationError("request body must be valid JSON");
+  }
+  return asRequest(parsed);
 }
 
 async function getLocations(
@@ -130,15 +307,20 @@ async function getLocations(
 ): Promise<WeatherLocationRow[]> {
   let query = client
     .from("weather_locations")
-    .select("id, provider, external_id, name, elevation_m, metadata")
+    .select("id, provider, external_id, name, location, elevation_m, metadata")
     .eq("provider", LOCATION_PROVIDER)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .limit(MAX_LOCATION_COUNT + 1);
   if (request.locationIds && request.locationIds.length > 0) {
     query = query.in("id", request.locationIds);
   }
   const { data, error } = await query;
   if (error) throw new Error(`weather location query failed: ${error.message}`);
-  return ((data ?? []) as Array<Record<string, unknown>>).map(locationFromRow);
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  if (rows.length > MAX_LOCATION_COUNT) {
+    throw new RequestValidationError(`active weather locations exceed the limit of ${MAX_LOCATION_COUNT}`);
+  }
+  return rows.map(locationFromRow);
 }
 
 async function relatedSeasonIds(client: SupabaseClient, locationId: string): Promise<string[]> {
@@ -276,7 +458,7 @@ async function recordRunFailure(
   runId: string,
   error: unknown,
 ): Promise<void> {
-  const message = errorMessage(error).slice(0, 2_000);
+  const message = safeErrorMessage(error);
   const { error: updateError } = await client
     .from("weather_import_runs")
     .update({
@@ -295,7 +477,7 @@ async function markSeasonErrors(
   error: unknown,
 ): Promise<void> {
   if (seasonIds.length === 0) return;
-  const message = errorMessage(error).slice(0, 2_000);
+  const message = safeErrorMessage(error);
   const { error: updateError } = await client
     .from("crop_season_summaries")
     .upsert(
@@ -332,7 +514,12 @@ async function processLocation(
   location: WeatherLocationRow,
   request: UpdateWeatherRequest,
   targetDate: LocalDate,
+  deadline: number,
 ): Promise<{ locationId: string; imported: number; seasonFailures: string[]; errors: RunError[] }> {
+  const assertWithinDeadline = () => {
+    if (Date.now() >= deadline) throw new Error("weather update exceeded the execution time limit");
+  };
+  assertWithinDeadline();
   const seasonIds = await relatedSeasonIds(client, location.id);
   const defaultFrom = addLocalDays(targetDate, -DEFAULT_BACKFILL_DAYS + 1);
   const metadataFromLocation = location.metadata.weather_start_date;
@@ -341,15 +528,14 @@ async function processLocation(
       ? metadataFromLocation
       : await earliestConfiguredDate(client, seasonIds, defaultFrom);
   const correctionDays = request.correctionDays;
-  if (correctionDays !== undefined && (!Number.isInteger(correctionDays) || correctionDays < 1 || correctionDays > MAX_CORRECTION_DAYS)) {
-    throw new RangeError(`correctionDays must be an integer from 1 to ${MAX_CORRECTION_DAYS}`);
-  }
   const forceCorrection = correctionDays !== undefined;
+  const boundedFallbackFrom =
+    compareLocalDates(fallbackFrom, defaultFrom) < 0 ? defaultFrom : fallbackFrom;
   const from = forceCorrection
     ? addLocalDays(targetDate, -(correctionDays! - 1))
-    : compareLocalDates(fallbackFrom, targetDate) > 0
+    : compareLocalDates(boundedFallbackFrom, targetDate) > 0
       ? targetDate
-      : fallbackFrom;
+      : boundedFallbackFrom;
   const retryTarget = request.retryOnly ? await latestFailed(client, location.id) : true;
   if (!retryTarget && !forceCorrection) {
     return { locationId: location.id, imported: 0, seasonFailures: [], errors: [] };
@@ -369,6 +555,7 @@ async function processLocation(
   let imported = 0;
   const errors: RunError[] = [];
   for (const range of ranges) {
+    assertWithinDeadline();
     const runMetadata = {
       provider: LOCATION_PROVIDER,
       endpointKind: "JMA_AMEDAS_POINT_JSON_INTERNAL",
@@ -400,14 +587,15 @@ async function processLocation(
         try {
           await recordRunFailure(client, runId, error);
         } catch (recordError) {
-          errors.push({ locationId: location.id, message: errorMessage(recordError) });
+          errors.push({ locationId: location.id, message: safeErrorMessage(recordError) });
         }
       }
       await markSeasonErrors(client, seasonIds, error);
-      errors.push({ locationId: location.id, message: errorMessage(error) });
+      errors.push({ locationId: location.id, message: safeErrorMessage(error) });
     }
   }
 
+  assertWithinDeadline();
   const seasonFailures = await recalculateSeasons(client, seasonIds, targetDate);
   errors.push(...seasonFailures.map((message) => ({ locationId: location.id, message })));
   if (errors.length > 0) {
@@ -429,14 +617,24 @@ export async function handleUpdateWeather(request: Request): Promise<Response> {
   const projectUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SECRET_KEY");
-  if (!projectUrl || !serviceRoleKey) return json({ error: "Supabase service configuration is missing" }, 503);
+  if (!projectUrl || !serviceRoleKey) {
+    return json({ error: "Supabase service configuration is missing" }, 503);
+  }
 
   try {
     const requestBody = await readJsonBody(request);
     const targetDate = requestBody.asOfDate
       ? addLocalDays(requestBody.asOfDate, -1)
       : addLocalDays(dateInTimeZone(new Date(), JMA_AMEDAS_TIME_ZONE), -1);
+    const latestAvailableDate = addLocalDays(
+      dateInTimeZone(new Date(), JMA_AMEDAS_TIME_ZONE),
+      -1,
+    );
+    if (targetDate < "2000-01-01" || compareLocalDates(targetDate, latestAvailableDate) > 0) {
+      throw new RequestValidationError("target date must be a past date from 2000-01-01 onward");
+    }
     const client = createClient(projectUrl, serviceRoleKey, {
+      db: { timeout: SUPABASE_DB_TIMEOUT_MS, retry: false },
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const locations = await getLocations(client, requestBody);
@@ -446,33 +644,43 @@ export async function handleUpdateWeather(request: Request): Promise<Response> {
       minRequestIntervalMs: 250,
       pointCacheTtlMs: 1_800_000,
       stationListCacheTtlMs: 86_400_000,
+      timeoutMs: PROVIDER_TIMEOUT_MS,
     });
+    const deadline = Date.now() + MAX_RUN_DURATION_MS;
     const results = [];
     for (const location of locations) {
       try {
-        results.push(await processLocation(client, provider, location, requestBody, targetDate));
+        results.push(
+          await processLocation(client, provider, location, requestBody, targetDate, deadline),
+        );
       } catch (error) {
         results.push({
           locationId: location.id,
           imported: 0,
           seasonFailures: [],
-          errors: [{ locationId: location.id, message: errorMessage(error) }],
+          errors: [{ locationId: location.id, message: safeErrorMessage(error) }],
         });
       }
     }
     const errors = results.flatMap((result) => result.errors);
-    return json({
-      ok: errors.length === 0,
-      provider: LOCATION_PROVIDER,
-      targetDate,
-      timeZone: JMA_AMEDAS_TIME_ZONE,
-      locationCount: locations.length,
-      importedRecordCount: results.reduce((sum, result) => sum + result.imported, 0),
-      results,
-      errors,
-    }, errors.length === 0 ? 200 : 207);
+    return json(
+      {
+        ok: errors.length === 0,
+        provider: LOCATION_PROVIDER,
+        targetDate,
+        timeZone: JMA_AMEDAS_TIME_ZONE,
+        locationCount: locations.length,
+        importedRecordCount: results.reduce((sum, result) => sum + result.imported, 0),
+        results,
+        errors,
+      },
+      errors.length === 0 ? 200 : 207,
+    );
   } catch (error) {
-    return json({ ok: false, error: errorMessage(error) }, 500);
+    if (error instanceof RequestValidationError || error instanceof RangeError) {
+      return json({ ok: false, error: safeErrorMessage(error) }, 400);
+    }
+    return json({ ok: false, error: "weather update failed" }, 500);
   }
 }
 
