@@ -25,6 +25,10 @@ data/raw/
 data/generated/
 *.fgb
 *.mbtiles
+*.ndjson
+*.audit.json
+maff-import-audit.json
+maff-schema.json
 
 # Logs
 *.log
