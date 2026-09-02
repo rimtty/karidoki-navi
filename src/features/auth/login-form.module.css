@@ -1,0 +1,159 @@
+.formRoot {
+  display: grid;
+  gap: 14px;
+}
+
+.modeSwitcher {
+  padding: 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  border-radius: 11px;
+  background: #edf3e9;
+}
+
+.modeButton,
+.modeButtonActive {
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  color: #71806e;
+  background: transparent;
+  font-size: 0.73rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.modeButtonActive {
+  color: #294d25;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(37, 73, 32, 0.1);
+}
+
+.modeButton:disabled,
+.modeButtonActive:disabled,
+.googleButton:disabled,
+.submitButton:disabled,
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.error,
+.message {
+  padding: 10px 11px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.error {
+  border: 1px solid #e3b8b0;
+  color: #8c3d31;
+  background: #fff4f1;
+}
+
+.message {
+  border: 1px solid #d4c177;
+  color: #70560f;
+  background: #fffaf0;
+}
+
+.googleButton,
+.submitButton {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.googleButton {
+  border: 1px solid #bbc9b7;
+  color: #2e422d;
+  background: #fff;
+}
+
+.googleButton:hover,
+.googleButton:focus-visible {
+  border-color: #7f9e78;
+  background: #f4f9f1;
+}
+
+.googleGlyph {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid #d7dfd4;
+  border-radius: 50%;
+  color: #43825a;
+  font-family: Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #879285;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: #dde4d9;
+  content: "";
+}
+
+.form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.field {
+  margin-top: 5px;
+  color: #50644d;
+  font-size: 0.71rem;
+  font-weight: 800;
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 11px;
+  border: 1px solid #c7d4c2;
+  border-radius: 9px;
+  color: #30462d;
+  background: #fff;
+  font-size: 0.77rem;
+}
+
+.input:focus-visible {
+  outline: 3px solid rgba(69, 117, 65, 0.25);
+  outline-offset: 1px;
+  border-color: #477541;
+}
+
+.submitButton {
+  margin-top: 8px;
+  border: 1px solid #315c2b;
+  color: #fff;
+  background: #315c2b;
+}
+
+.submitButton:hover,
+.submitButton:focus-visible {
+  background: #244a21;
+}
