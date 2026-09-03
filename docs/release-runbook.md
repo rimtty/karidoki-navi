@@ -114,9 +114,10 @@ curl --fail-with-body --max-time 120 \
 ## 6. Vercelへdeployする
 
 1. VercelのProduction環境へ、`NEXT_PUBLIC_SUPABASE_URL` と `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` だけを公開クライアント設定として登録します。値はVercelのSecret管理画面から入力し、Git、ビルドログ、画面へ出しません。
-2. `SUPABASE_SERVICE_ROLE_KEY`、`UPDATE_WEATHER_CRON_SECRET`、OAuth/SMTP credentialsをNext.jsの公開環境変数へ追加しません。Edge FunctionのsecretとVaultはSupabase側で管理します。
-3. Production buildを実行し、`/login`、`/auth/callback`、`/app`、`/app/fields`、`/app/fields/[fieldId]`、`/app/settings/variety-rules` のレスポンスが、設定済みSupabaseの実データまたは日本語エラーを返すことを確認します。fixtureが本番表示へ混ざっていないことを確認します。
-4. VercelのデプロイURL、commit、build結果、エラーログの確認者を記録します。
+2. `vercel.json`の`regions`が`hnd1`であることを確認し、PreviewとProductionのFunctionsが東京へ配置されたことをデプロイ詳細で確認します。
+3. `SUPABASE_SERVICE_ROLE_KEY`、`UPDATE_WEATHER_CRON_SECRET`、OAuth/SMTP credentialsをNext.jsの公開環境変数へ追加しません。Edge FunctionのsecretとVaultはSupabase側で管理します。
+4. Production buildを実行し、`/login`、`/auth/callback`、`/app`、`/app/fields`、`/app/fields/[fieldId]`、`/app/settings/variety-rules` のレスポンスが、設定済みSupabaseの実データまたは日本語エラーを返すことを確認します。fixtureが本番表示へ混ざっていないことを確認します。
+5. VercelのデプロイURL、commit、build結果、エラーログの確認者を記録します。
 
 ## 7. Auth callbackと外部認証を確認する
 
