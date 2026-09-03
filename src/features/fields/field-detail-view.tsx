@@ -34,7 +34,7 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
     if (status === "ready") return "今が刈りどきです。稲と天候を確認しましょう。";
     if (status === "overdue") return "刈りどきを過ぎています。早めに田んぼを確認してください。";
     if (status === "soon") return field.referenceDays !== null ? `刈りどきまで、あと約${field.referenceDays}日です。` : "刈りどきが近づいています。";
-    if (status === "growing") return "順調に登熟しています。";
+    if (status === "growing") return "刈りどき前です。お米が育っています。";
     return "この品種の刈りどき設定を確認してください。";
   }, [field.referenceDays, status]);
 

@@ -54,7 +54,7 @@ function StepPicture({ step }: { step: number }) {
 
   return (
     <div className={styles.statusPicture} aria-label="田んぼの色表示の見本">
-      <div className={styles.growing}><strong>東の田んぼ</strong><span>登熟中</span></div>
+      <div className={styles.growing}><strong>東の田んぼ</strong><span>刈りどき前</span></div>
       <div className={styles.soon}><strong>家の前</strong><span>もうすぐ</span></div>
       <div className={styles.ready}><strong>大きな田</strong><span>刈りどき</span></div>
     </div>
@@ -149,7 +149,7 @@ export function GuideView() {
         {currentStep === 2 && (
           <div className={styles.explanation}>
             <strong>金色になった田んぼから確認</strong>
-            <p>緑は登熟中、黄色はもうすぐ、金色は刈りどきです。色だけでなく文字でも表示します。</p>
+            <p>緑は刈りどき前、黄色はもうすぐ、金色は刈りどきです。色だけでなく文字でも表示します。</p>
           </div>
         )}
 
