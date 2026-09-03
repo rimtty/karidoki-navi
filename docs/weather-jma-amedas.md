@@ -32,15 +32,37 @@ JMAの地点JSONは10分値を含むため、1日8ファイルを取得してJST
 - `weather_import_runs` の期間、成否、エラー、取得元メタデータ
 
 同じ観測タイムスタンプが複数ファイルに現れた場合は1つへ重複除去します。値が後から
-訂正された場合は週次60日再取得で同じ地点・日付をUPSERTします。
+訂正された場合は週次の保持期間内再取得（未設定時28日）で同じ地点・日付をUPSERTします。
 
 ## Edge Function
 
-`supabase/functions/update-weather` はPOST専用です。実行時にJSTの前日を対象とし、地点ごと
-に未取得日と前日を取得します。`{"retryOnly":true}` は直近の失敗地点を再試行し、
-`{"correctionDays":60}` は直近60日を強制再取得します。取り込み後は関連する
-`crop_season`ごとに `recalculate_crop_season_summary` RPCを呼び、日別値から積算・欠測数・
-データ状態・成熟状態を冪等に再生成します。
+`supabase/functions/update-weather` はPOST専用です。日付はすべてJSTのカレンダー日です。
+通常の `{}` は当日の前日を `targetDate` とし、season bindingがない地点はその1日だけを
+取得します。season bindingがある地点だけ、出穂日または地点メタデータを起点に最大60日の
+暗黙バックフィルを計画します。
+
+`asOfDate` は観測対象日ではなく、JSTの実行基準日（カットオフ日）です。明示的な範囲を
+指定しない場合の `targetDate` は `asOfDate` の前日になります。運用者が前日だけを厳密に
+取得する場合は `{"asOfDate":"YYYY-MM-DD","targetDateOnly":true}` を使います。より明示的な
+再取得には `fromDate` と `toDate` を必ず組で指定します（`asOfDate`、`targetDateOnly`、
+`correctionDays` とは併用しません）。同じ日を指定した `fromDate`/`toDate` は1日だけの
+bounded smokeになります。レスポンスには `asOfDate` の意味、`targetDate`、要求範囲、実際の
+取得範囲、JMA保持期間が含まれます。
+
+`{"retryOnly":true}` は直近の失敗地点を再試行します。`{"correctionDays":N}` は直近N日を
+強制再取得しますが、Nは1〜60かつJMAの利用可能期間以内でなければならず、超過時は400を
+返します。期間を暗黙にclampして実行することはありません。
+
+JMA地点別JSONの保持期間は実測または運用確認した値を `JMA_WEATHER_RETENTION_DAYS`（1〜60）
+へ設定できます。未設定時は安全側の28日です。seasonありの暗黙バックフィルだけはこの保持
+期間まで短縮し、レスポンスの `retentionLimited=true` / `csvFallbackStatus=REQUIRED_FOR_OLDER_DATES`
+で保持期間外の古い日付を手動CSVで補う必要があることを示します。保持期間外の日付を
+JMAへ繰り返し要求しません。明示範囲と `correctionDays` は保持期間外なら400です。
+
+取り込み後は関連する `crop_season` ごとに `recalculate_crop_season_summary` RPCを呼び、
+日別値から積算・欠測数・データ状態・成熟状態を冪等に再生成します。複数地点・複数範囲の
+一部が失敗した場合は `ok=false` とHTTP 207を維持し、成功した範囲、失敗、CSV fallback状態を
+レスポンスと監査行へ残します。
 
 運用上の上限は、1回あたり地点100件、訂正範囲60日、地点リクエストの本文32KiBです。
 JMAの各JSON取得は15秒でタイムアウトし、Function全体にも120秒の実行予算を設けています。

@@ -51,7 +51,10 @@
 
 ## 3. bounded smokeを実行する
 
-本番では世羅の気象地点 `67316` に紐づく地点IDを一つだけ指定し、対象日を一日だけに限定します。地点IDはDBから確認し、secretやUUIDを文書・ログへ転記しません。外部JMAの検証ができないローカルでは、同じ地点・一日・24正時を持つ明示的なfixtureで確認できます。fixtureを本番の成功判定に使ってはいけません。
+本番では世羅の気象地点 `67316` に紐づく地点IDを一つだけ指定し、`fromDate` と
+`toDate` に同じ観測日を明示して一日だけに限定します。地点IDはDBから確認し、secretや
+UUIDを文書・ログへ転記しません。外部JMAの検証ができないローカルでは、同じ地点・一日・
+24正時を持つ明示的なfixtureで確認できます。fixtureを本番の成功判定に使ってはいけません。
 
 承認済みの保護された実行環境から、Function URLとsecretを直接書かずにPOSTします。リクエストの形は次のとおりです。
 
@@ -60,15 +63,21 @@ curl --fail-with-body --max-time 120 \
   -X POST "${UPDATE_WEATHER_FUNCTION_URL}" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${UPDATE_WEATHER_CRON_SECRET}" \
-  --data '{"locationIds":["<67316のweather_location_id>"],"asOfDate":"<JSTの対象日>"}'
+  --data '{"locationIds":["<67316のweather_location_id>"],"fromDate":"<JSTの観測対象日>","toDate":"<同じ観測対象日>"}'
 ```
 
 `<...>`はその場で確認する値であり、Gitへ置きません。次をDBの監査画面または保護されたSQL実行環境で確認します。
+この例の `UPDATE_WEATHER_FUNCTION_URL` は作業端末だけの一時変数であり、アプリの環境変数では
+ありません。Function APIでは、`asOfDate` はJSTの実行基準日（カットオフ日）で、明示範囲が
+ない場合だけ前日が `targetDate` になります。前日を `asOfDate` で指定する場合は
+`targetDateOnly:true` を付け、暗黙バックフィルを許可しません。
 
 - `weather_import_runs` に対象地点・対象日一日の成功記録がある。
 - JMAの8ファイルから正時24点が得られ、`daily_weather.sample_count=24`、`expected_sample_count=24` になっている。
 - `daily_weather.mean_temp_c` は24点の算術平均（表示桁へ丸めた値）と一致し、欠測を0℃としていない。
 - 同じPOSTを同一条件で再実行しても一意キーを増やさずUPSERTされ、関連する `crop_season_summaries` が再計算される。
+- レスポンスの `rangeMode=explicit-range`、各結果の `requestedRange` /
+  `effectiveRange` が同じ一日を示し、`retentionWindow` 内である。
 - 成功・失敗レスポンス、Functionログ、HTTP履歴にsecret、サービスロールキー、Authorizationヘッダー全体が残っていない。
 
 一日・一地点の確認が取れない場合は、CronとMAFF取込へ進まず、JMA非保証の代替としてレビュー済み手動CSV経路を検討します。
@@ -88,7 +97,7 @@ curl --fail-with-body --max-time 120 \
    | 訂正値の再取得 | 月曜07:00 | `0 22 * * 0`（日曜UTC） |
 
 4. CronのAuthorizationはカスタムBearerとし、サービスロールJWTを設定しません。
-5. `cron.job`、`net._http_response`、`weather_import_runs`、Functionログで、初回実行、HTTP status、所要時間、失敗地点、重複実行の有無を確認します。失敗時はretryOnlyまたはcorrectionDaysの範囲を守り、無制限再試行にしません。
+5. `cron.job`、`net._http_response`、`weather_import_runs`、Functionログで、初回実行、HTTP status、所要時間、失敗地点、重複実行の有無を確認します。失敗時はretryOnlyまたは、Functionの `JMA_WEATHER_RETENTION_DAYS` 以下に設定した correctionDays の範囲を守り、無制限再試行にしません。未設定時の保持期間と週次訂正値は28日です。
 
 テンプレートはmigrationではありません。bounded smokeとレビューが完了するまでコメントを外さず、本番Cronを自動で有効化するmigrationを追加しません。
 
@@ -151,7 +160,7 @@ Google OAuth外部設定とSMTP本運用前設定が終わるまでは、メー�
 | --- | --- |
 | DB | 適用済みmigration一覧、バックアップ確認、RPC/RLS最小確認 |
 | Function | deploy revision、`--no-verify-jwt`確認、secret非露出のログ確認 |
-| bounded smoke | 地点67316、一日、24正時、平均、UPSERT、サマリー再計算の結果 |
+| bounded smoke | 地点67316、同一from/toの一日、24正時、平均、UPSERT、サマリー再計算、取得範囲の結果 |
 | Vault/Cron | Vault名、cron job名・UTC schedule、初回HTTP status・所要時間 |
 | MAFF | 2026年、久井、田、2,010件、監査台帳ID、無効／修復件数 |
 | Vercel | Production deployment、commit、build結果、公開env名の確認 |
@@ -163,4 +172,6 @@ Google OAuth外部設定とSMTP本運用前設定が終わるまでは、メー�
 - Google OAuthのクライアント登録・redirect設定は外部作業であり、SMTPの本番運用前設定も未完了です。
 - iPhone Safari/PWAとAndroid Chrome/PWAの実機確認は未実施です。PlaywrightのモバイルChromeエミュレーションは実機受入の代わりになりません。
 - JMA地点別JSONは非保証です。障害時はレビュー済み手動CSVへ切り替え、データ品質と出典を記録します。
+- seasonありの暗黙バックフィルが保持期間で短縮された場合は、レスポンスの
+  `csvFallbackStatus=REQUIRED_FOR_OLDER_DATES` を確認し、古い日付をレビュー済みCSVで補います。
 - 初期5品種の公式閾値は未設定です。利用者カスタムルールを使う場合も、根拠メモと作付け登録時点のスナップショットを確認します。

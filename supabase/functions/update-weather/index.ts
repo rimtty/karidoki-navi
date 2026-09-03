@@ -11,17 +11,27 @@ import {
   JmaAmedasProvider,
   addLocalDays,
   assertLocalDate,
-  compareLocalDates,
   dateInTimeZone,
   listLocalDates,
   type DailyWeatherValue,
   type LocalDate,
   type WeatherLocation,
 } from "../../../src/features/weather/weather-core.ts";
+import {
+  DEFAULT_BACKFILL_DAYS,
+  makeRetentionWindow,
+  MAX_CORRECTION_DAYS,
+  parseJmaRetentionDays,
+  planWeatherRange,
+  resolveWeatherDates,
+  validateWeatherDateRequest,
+  type ResolvedWeatherDates,
+  type WeatherDateRange,
+  type WeatherRangePlan,
+  type WeatherRetentionWindow,
+} from "../../../src/features/weather/update-weather-contract.ts";
 
 const LOCATION_PROVIDER = "JMA_AMEDAS";
-const DEFAULT_BACKFILL_DAYS = 60;
-const MAX_CORRECTION_DAYS = 60;
 const MAX_LOCATION_IDS = 100;
 const MAX_LOCATION_COUNT = 100;
 const MAX_REQUEST_BODY_BYTES = 32 * 1024;
@@ -38,10 +48,15 @@ interface UpdateWeatherRequest {
   locationIds?: string[];
   /** Retry the previous target day and locations whose latest run failed. */
   retryOnly?: boolean;
-  /** Force a rolling correction window (1..60 days). */
+  /** Force a rolling correction window (1..60 days, within JMA retention). */
   correctionDays?: number;
-  /** Used by an operator for a bounded replay; interpreted as a JST date. */
+  /** JST run/cutoff date. Without an explicit range, targetDate is this minus one day. */
   asOfDate?: LocalDate;
+  /** Inclusive observed date range. Both values are required when either is used. */
+  fromDate?: LocalDate;
+  toDate?: LocalDate;
+  /** Make asOfDate's previous JST day the only requested date. */
+  targetDateOnly?: boolean;
 }
 
 interface WeatherLocationRow extends WeatherLocation {
@@ -52,6 +67,17 @@ interface WeatherLocationRow extends WeatherLocation {
 interface RunError {
   locationId: string;
   message: string;
+}
+
+interface LocationUpdateResult {
+  locationId: string;
+  imported: number;
+  requestedRange: WeatherDateRange;
+  effectiveRange: WeatherDateRange;
+  retentionLimited: boolean;
+  csvFallbackStatus: WeatherRangePlan["csvFallbackStatus"];
+  seasonFailures: string[];
+  errors: RunError[];
 }
 
 class RequestValidationError extends Error {
@@ -136,6 +162,28 @@ function asRequest(value: unknown): UpdateWeatherRequest {
     throw new RequestValidationError("retryOnly must be a boolean");
   }
 
+  if (body.targetDateOnly !== undefined && typeof body.targetDateOnly !== "boolean") {
+    throw new RequestValidationError("targetDateOnly must be a boolean");
+  }
+
+  let fromDate: LocalDate | undefined;
+  let toDate: LocalDate | undefined;
+  for (const [key, value] of [
+    ["fromDate", body.fromDate],
+    ["toDate", body.toDate],
+  ] as const) {
+    if (value === undefined) continue;
+    if (typeof value !== "string") {
+      throw new RequestValidationError(`${key} must be an ISO date`);
+    }
+    const date = assertLocalDate(value, key);
+    if (date < "2000-01-01" || date > "2100-12-31") {
+      throw new RequestValidationError(`${key} must be between 2000-01-01 and 2100-12-31`);
+    }
+    if (key === "fromDate") fromDate = date;
+    else toDate = date;
+  }
+
   let asOfDate: LocalDate | undefined;
   if (body.asOfDate !== undefined) {
     if (typeof body.asOfDate !== "string") {
@@ -152,6 +200,9 @@ function asRequest(value: unknown): UpdateWeatherRequest {
     retryOnly: body.retryOnly === true,
     correctionDays,
     asOfDate,
+    fromDate,
+    toDate,
+    targetDateOnly: body.targetDateOnly === true,
   };
 }
 
@@ -376,7 +427,7 @@ async function missingDates(
   from: LocalDate,
   to: LocalDate,
   targetDate: LocalDate,
-  forceCorrection: boolean,
+  forceRange: boolean,
 ): Promise<LocalDate[]> {
   const { data, error } = await client
     .from("daily_weather")
@@ -391,7 +442,7 @@ async function missingDates(
       .filter((value): value is string => typeof value === "string"),
   );
   return listLocalDates(from, to).filter(
-    (date) => forceCorrection || date === targetDate || !existing.has(date),
+    (date) => forceRange || date === targetDate || !existing.has(date),
   );
 }
 
@@ -513,40 +564,62 @@ async function processLocation(
   provider: JmaAmedasProvider,
   location: WeatherLocationRow,
   request: UpdateWeatherRequest,
-  targetDate: LocalDate,
+  dates: ResolvedWeatherDates,
+  retention: WeatherRetentionWindow,
   deadline: number,
-): Promise<{ locationId: string; imported: number; seasonFailures: string[]; errors: RunError[] }> {
+): Promise<LocationUpdateResult> {
   const assertWithinDeadline = () => {
     if (Date.now() >= deadline) throw new Error("weather update exceeded the execution time limit");
   };
   assertWithinDeadline();
   const seasonIds = await relatedSeasonIds(client, location.id);
-  const defaultFrom = addLocalDays(targetDate, -DEFAULT_BACKFILL_DAYS + 1);
+  const defaultFrom = addLocalDays(dates.targetDate, -DEFAULT_BACKFILL_DAYS + 1);
   const metadataFromLocation = location.metadata.weather_start_date;
   const fallbackFrom =
     typeof metadataFromLocation === "string" && assertLocalDate(metadataFromLocation, "weather_start_date")
       ? metadataFromLocation
       : await earliestConfiguredDate(client, seasonIds, defaultFrom);
-  const correctionDays = request.correctionDays;
-  const forceCorrection = correctionDays !== undefined;
-  const boundedFallbackFrom =
-    compareLocalDates(fallbackFrom, defaultFrom) < 0 ? defaultFrom : fallbackFrom;
-  const from = forceCorrection
-    ? addLocalDays(targetDate, -(correctionDays! - 1))
-    : compareLocalDates(boundedFallbackFrom, targetDate) > 0
-      ? targetDate
-      : boundedFallbackFrom;
+  const rangePlan = planWeatherRange({
+    targetDate: dates.targetDate,
+    seasonCount: seasonIds.length,
+    seasonFallbackFrom: fallbackFrom,
+    explicitRange: dates.explicitRange,
+    correctionDays: request.correctionDays,
+    retention,
+  });
+  const forceCorrection = request.correctionDays !== undefined;
+  const forceExplicitRange = dates.explicitRange !== null;
   const retryTarget = request.retryOnly ? await latestFailed(client, location.id) : true;
   if (!retryTarget && !forceCorrection) {
-    return { locationId: location.id, imported: 0, seasonFailures: [], errors: [] };
-  }
-  const dates = await missingDates(client, location.id, from, targetDate, targetDate, forceCorrection);
-  const ranges = compactRanges(dates);
-  if (ranges.length === 0) {
-    const seasonFailures = await recalculateSeasons(client, seasonIds, targetDate);
     return {
       locationId: location.id,
       imported: 0,
+      requestedRange: rangePlan.requestedRange,
+      effectiveRange: rangePlan.effectiveRange,
+      retentionLimited: rangePlan.retentionLimited,
+      csvFallbackStatus: rangePlan.csvFallbackStatus,
+      seasonFailures: [],
+      errors: [],
+    };
+  }
+  const missing = await missingDates(
+    client,
+    location.id,
+    rangePlan.effectiveRange.from,
+    rangePlan.effectiveRange.to,
+    dates.targetDate,
+    forceCorrection || forceExplicitRange,
+  );
+  const ranges = compactRanges(missing);
+  if (ranges.length === 0) {
+    const seasonFailures = await recalculateSeasons(client, seasonIds, dates.targetDate);
+    return {
+      locationId: location.id,
+      imported: 0,
+      requestedRange: rangePlan.requestedRange,
+      effectiveRange: rangePlan.effectiveRange,
+      retentionLimited: rangePlan.retentionLimited,
+      csvFallbackStatus: rangePlan.csvFallbackStatus,
       seasonFailures,
       errors: seasonFailures.map((message) => ({ locationId: location.id, message })),
     };
@@ -562,9 +635,16 @@ async function processLocation(
       timeZone: JMA_AMEDAS_TIME_ZONE,
       locationId: location.id,
       stationId: location.externalId,
-      requestedFrom: range.from,
-      requestedTo: range.to,
+      requestedFrom: rangePlan.requestedRange.from,
+      requestedTo: rangePlan.requestedRange.to,
       correctionRun: forceCorrection,
+      explicitRange: forceExplicitRange,
+      plannedFrom: rangePlan.requestedRange.from,
+      plannedTo: rangePlan.requestedRange.to,
+      effectiveFrom: range.from,
+      effectiveTo: range.to,
+      retentionLimited: rangePlan.retentionLimited,
+      csvFallbackStatus: rangePlan.csvFallbackStatus,
     };
     let runId: string | null = null;
     try {
@@ -596,7 +676,7 @@ async function processLocation(
   }
 
   assertWithinDeadline();
-  const seasonFailures = await recalculateSeasons(client, seasonIds, targetDate);
+  const seasonFailures = await recalculateSeasons(client, seasonIds, dates.targetDate);
   errors.push(...seasonFailures.map((message) => ({ locationId: location.id, message })));
   if (errors.length > 0) {
     // Do not let a later successful range hide an earlier endpoint failure in
@@ -604,7 +684,16 @@ async function processLocation(
     // complete.
     await markSeasonErrors(client, seasonIds, errors[0].message);
   }
-  return { locationId: location.id, imported, seasonFailures, errors };
+  return {
+    locationId: location.id,
+    imported,
+    requestedRange: rangePlan.requestedRange,
+    effectiveRange: rangePlan.effectiveRange,
+    retentionLimited: rangePlan.retentionLimited,
+    csvFallbackStatus: rangePlan.csvFallbackStatus,
+    seasonFailures,
+    errors,
+  };
 }
 
 export async function handleUpdateWeather(request: Request): Promise<Response> {
@@ -623,16 +712,21 @@ export async function handleUpdateWeather(request: Request): Promise<Response> {
 
   try {
     const requestBody = await readJsonBody(request);
-    const targetDate = requestBody.asOfDate
-      ? addLocalDays(requestBody.asOfDate, -1)
-      : addLocalDays(dateInTimeZone(new Date(), JMA_AMEDAS_TIME_ZONE), -1);
-    const latestAvailableDate = addLocalDays(
-      dateInTimeZone(new Date(), JMA_AMEDAS_TIME_ZONE),
-      -1,
-    );
-    if (targetDate < "2000-01-01" || compareLocalDates(targetDate, latestAvailableDate) > 0) {
-      throw new RequestValidationError("target date must be a past date from 2000-01-01 onward");
+    const currentJstDate = dateInTimeZone(new Date(), JMA_AMEDAS_TIME_ZONE);
+    const dates = resolveWeatherDates(requestBody, currentJstDate);
+    let retention: WeatherRetentionWindow;
+    try {
+      const retentionSettings = parseJmaRetentionDays(
+        Deno.env.get("JMA_WEATHER_RETENTION_DAYS"),
+      );
+      retention = makeRetentionWindow(
+        addLocalDays(currentJstDate, -1),
+        retentionSettings,
+      );
+    } catch {
+      return json({ ok: false, error: "JMA retention configuration is invalid" }, 503);
     }
+    validateWeatherDateRequest(dates, requestBody, retention);
     const client = createClient(projectUrl, serviceRoleKey, {
       db: { timeout: SUPABASE_DB_TIMEOUT_MS, retry: false },
       auth: { autoRefreshToken: false, persistSession: false },
@@ -647,16 +741,22 @@ export async function handleUpdateWeather(request: Request): Promise<Response> {
       timeoutMs: PROVIDER_TIMEOUT_MS,
     });
     const deadline = Date.now() + MAX_RUN_DURATION_MS;
-    const results = [];
+    const results: LocationUpdateResult[] = [];
     for (const location of locations) {
       try {
         results.push(
-          await processLocation(client, provider, location, requestBody, targetDate, deadline),
+          await processLocation(client, provider, location, requestBody, dates, retention, deadline),
         );
       } catch (error) {
+        const fallbackRange =
+          dates.explicitRange ?? { from: dates.targetDate, to: dates.targetDate };
         results.push({
           locationId: location.id,
           imported: 0,
+          requestedRange: fallbackRange,
+          effectiveRange: fallbackRange,
+          retentionLimited: false,
+          csvFallbackStatus: "NOT_REQUIRED",
           seasonFailures: [],
           errors: [{ locationId: location.id, message: safeErrorMessage(error) }],
         });
@@ -667,8 +767,19 @@ export async function handleUpdateWeather(request: Request): Promise<Response> {
       {
         ok: errors.length === 0,
         provider: LOCATION_PROVIDER,
-        targetDate,
+        asOfDate: dates.asOfDate,
+        asOfDateMeaning:
+          "JSTの実行基準日。explicit rangeがない場合、targetDateはasOfDateの前日です。",
+        targetDate: dates.targetDate,
+        rangeMode: dates.mode,
+        requestedRange: dates.explicitRange,
         timeZone: JMA_AMEDAS_TIME_ZONE,
+        retentionWindow: {
+          days: retention.days,
+          earliestDate: retention.earliestDate,
+          latestDate: retention.latestDate,
+          basis: retention.basis,
+        },
         locationCount: locations.length,
         importedRecordCount: results.reduce((sum, result) => sum + result.imported, 0),
         results,

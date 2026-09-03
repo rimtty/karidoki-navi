@@ -15,6 +15,11 @@
 --
 -- pg_cronはUTCで実行する。06:30 JST = 21:30 UTC (前日)、12:30 JST = 03:30 UTC、
 -- 週次訂正は月曜07:00 JST = 日曜22:00 UTCとしている。
+-- 通常run (body := '{}') はseasonなし地点をJST前日1日だけ取得し、seasonあり地点の
+-- 暗黙バックフィルはJMA_WEATHER_RETENTION_DAYS以内へFunction側で限定する。未設定時の
+-- 安全側デフォルトは28日。correctionDaysはこの保持期間を超えると400になるため、下記の
+-- 週次訂正値もデフォルト28日に合わせている。保持期間を変更する場合は、Function設定・
+-- smoke・この値を同じ承認記録で更新する。
 -- Vault APIの詳細はプロジェクトのSupabaseバージョンに合わせて確認する。
 
 -- create extension if not exists pg_cron with schema extensions;
@@ -99,7 +104,7 @@
 --         where name = 'karidoki_navi_update_weather_secret'
 --       )
 --     ),
---     body := '{"correctionDays":60}'::jsonb
+--     body := '{"correctionDays":28}'::jsonb
 --   );
 --   $$
 -- );
