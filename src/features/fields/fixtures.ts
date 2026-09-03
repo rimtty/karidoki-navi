@@ -56,7 +56,7 @@ export const RICE_VARIETIES = CONFIRMED_RICE_VARIETY_NAMES;
 
 /** Stable IDs keep the unconfigured registration flow deterministic. */
 export const FIXTURE_RICE_VARIETIES: RiceVarietyOption[] = RICE_VARIETIES.map(
-  (name, index) => ({ id: `fixture-variety-${index + 1}`, name }),
+  (name, index) => ({ id: `fixture-variety-${index + 1}`, name, isCustom: false }),
 );
 
 export type RiceVariety = (typeof RICE_VARIETIES)[number];

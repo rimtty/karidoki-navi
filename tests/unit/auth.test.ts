@@ -23,13 +23,24 @@ describe("authenticated account summary", () => {
       summarizeAuthenticatedAccount({
         email: "farmer@example.com",
         app_metadata: { provider: "google" },
-        identities: [{ provider: "google" }],
+        user_metadata: {
+          avatar_url: "https://lh3.googleusercontent.com/a/farmer-photo",
+        },
+        identities: [
+          {
+            provider: "google",
+            identity_data: {
+              picture: "https://lh3.googleusercontent.com/a/farmer-photo",
+            },
+          },
+        ],
       }),
     ).toEqual({
       email: "farmer@example.com",
       currentProvider: "google",
       hasGoogleIdentity: true,
       hasEmailIdentity: false,
+      avatarUrl: "https://lh3.googleusercontent.com/a/farmer-photo",
     });
   });
 
@@ -44,7 +55,23 @@ describe("authenticated account summary", () => {
       currentProvider: "email",
       hasGoogleIdentity: false,
       hasEmailIdentity: true,
+      avatarUrl: null,
     });
+  });
+
+  it("rejects non-Google and unsafe profile image URLs", () => {
+    expect(
+      summarizeAuthenticatedAccount({
+        app_metadata: { provider: "google" },
+        user_metadata: { avatar_url: "javascript:alert(1)" },
+        identities: [
+          {
+            provider: "google",
+            identity_data: { picture: "https://example.com/avatar.png" },
+          },
+        ],
+      }).avatarUrl,
+    ).toBeNull();
   });
 });
 

@@ -5,7 +5,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataLoadError } from "@/components/data-load-error";
 import { FixtureNotice } from "@/components/quality-notice";
-import { deleteVarietyRuleAction, saveVarietyRuleAction } from "@/lib/variety-rules/actions";
+import {
+  createRiceVarietyAction,
+  deleteVarietyRuleAction,
+  saveVarietyRuleAction,
+} from "@/lib/variety-rules/actions";
 import {
   emptyVarietyRuleForm,
   validateVarietyRuleForm,
@@ -178,7 +182,7 @@ function RuleForm({
           </div>
           <div>
             <dt>使う田んぼ</dt>
-            <dd>保存後に登録する田んぼ</dd>
+            <dd>同じ品種の未設定の田んぼ</dd>
           </div>
         </dl>
       </div>
@@ -204,6 +208,9 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
   const [errors, setErrors] = useState<VarietyRuleFormErrors>({});
   const [pending, setPending] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [newVarietyName, setNewVarietyName] = useState("");
+  const [pendingVariety, setPendingVariety] = useState(false);
+  const [varietyError, setVarietyError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackError, setFeedbackError] = useState(false);
 
@@ -229,6 +236,55 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
       current ? { ...current, form: { ...current.form, [field]: value } } : current,
     );
     setErrors((current) => ({ ...current, [field]: undefined, form: undefined }));
+  }
+
+  async function addVariety() {
+    if (pendingVariety || initialData.source === "fixture") return;
+    const name = newVarietyName.trim().replace(/\s+/g, " ");
+    if (!name || name.length > 30) {
+      setVarietyError("品種名を30文字以内で入力してください。");
+      return;
+    }
+    if (cards.some((card) => card.name.localeCompare(name, "ja", { sensitivity: "base" }) === 0)) {
+      setVarietyError("この品種は、すでに一覧にあります。");
+      return;
+    }
+
+    setPendingVariety(true);
+    setVarietyError(null);
+    setFeedback(null);
+    setFeedbackError(false);
+    try {
+      const result = await createRiceVarietyAction({ name });
+      if (!result.ok) {
+        setVarietyError(result.message);
+        return;
+      }
+      setCards((current) =>
+        current.some((card) => card.id === result.card.id)
+          ? current
+          : [...current, result.card],
+      );
+      setNewVarietyName("");
+      setEditing({
+        cardId: result.card.id,
+        ruleId: null,
+        form: emptyVarietyRuleForm(),
+      });
+      setErrors({});
+      setFeedback("品種を追加しました。続けて、刈りどきの目安を入力してください。");
+      router.refresh();
+      window.setTimeout(() => {
+        document.getElementById(`variety-${result.card.id}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 0);
+    } catch {
+      setVarietyError("品種を追加できませんでした。通信状態を確認してください。");
+    } finally {
+      setPendingVariety(false);
+    }
   }
 
   async function submitRule() {
@@ -269,7 +325,7 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
       );
       setEditing(null);
       setErrors({});
-      setFeedback("刈りどきの目安を保存しました。これから登録する田んぼに使います。");
+      setFeedback("刈りどきの目安を保存しました。同じ品種で未設定の田んぼにも反映しました。");
       router.refresh();
     } catch {
       setFeedback("刈りどきの目安を保存できませんでした。通信状態を確認してください。");
@@ -338,6 +394,52 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
         </div>
       </div>
 
+      <section className={styles.addVarietyPanel} aria-labelledby="add-variety-title">
+        <div>
+          <p className={styles.addVarietyEyebrow}>一覧にない品種</p>
+          <h2 id="add-variety-title">品種を追加</h2>
+          <p>作っているお米が一覧にないときだけ、品種名を追加してください。</p>
+        </div>
+        <div className={styles.addVarietyControls}>
+          <label htmlFor="new-variety-name">追加する品種名</label>
+          <div className={styles.addVarietyRow}>
+            <input
+              id="new-variety-name"
+              type="text"
+              maxLength={30}
+              autoComplete="off"
+              placeholder="例：にこまる"
+              value={newVarietyName}
+              onChange={(event) => {
+                setNewVarietyName(event.target.value);
+                setVarietyError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void addVariety();
+                }
+              }}
+              aria-invalid={Boolean(varietyError)}
+              aria-describedby={varietyError ? "new-variety-error" : undefined}
+              disabled={pendingVariety || initialData.source === "fixture"}
+            />
+            <button
+              type="button"
+              onClick={() => void addVariety()}
+              disabled={pendingVariety || initialData.source === "fixture"}
+            >
+              {pendingVariety ? "追加しています…" : "この品種を追加"}
+            </button>
+          </div>
+          {varietyError && (
+            <p className={styles.error} id="new-variety-error" role="alert">
+              {varietyError}
+            </p>
+          )}
+        </div>
+      </section>
+
       {feedback && (
         <p
           className={`${styles.feedback} ${feedbackError ? styles.feedbackError : ""}`}
@@ -354,7 +456,10 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
           return (
             <section className={styles.card} key={card.id} aria-labelledby={`variety-${card.id}`}>
               <div className={styles.cardHeader}>
-                <h2 id={`variety-${card.id}`}>{card.name}</h2>
+                <div>
+                  <h2 id={`variety-${card.id}`}>{card.name}</h2>
+                  {card.isCustom && <span className={styles.customLabel}>追加した品種</span>}
+                </div>
                 <span className={hasRule ? styles.configuredBadge : styles.emptyBadge}>
                   {hasRule ? "目安あり" : "目安なし"}
                 </span>

@@ -483,13 +483,22 @@ export function adaptRiceVarietyRows(
       }
       const nameKana = asText(row.name_kana, "品種読み", true);
       if (!row.is_active) return null;
-      if (!order.has(name)) return null;
       return {
         id,
-        name: name as (typeof CONFIRMED_RICE_VARIETY_NAMES)[number],
+        name,
         nameKana,
+        isCustom: row.owner_account_id !== null,
       };
     })
     .filter((row): row is RiceVarietyOption => row !== null)
-    .sort((left, right) => order.get(left.name)! - order.get(right.name)!);
+    .sort((left, right) => {
+      const leftOrder = order.get(left.name);
+      const rightOrder = order.get(right.name);
+      if (leftOrder !== undefined && rightOrder !== undefined) {
+        return leftOrder - rightOrder;
+      }
+      if (leftOrder !== undefined) return -1;
+      if (rightOrder !== undefined) return 1;
+      return left.name.localeCompare(right.name, "ja");
+    });
 }

@@ -1,5 +1,3 @@
-import type { ConfirmedRiceVarietyName } from "@/features/fields/view-model";
-
 export type VarietyRuleDataSource = "supabase" | "fixture";
 
 export type VarietyRuleRegion = {
@@ -28,8 +26,9 @@ export type AccountVarietyRule = {
 
 export type VarietyRuleCard = {
   id: string;
-  name: ConfirmedRiceVarietyName;
+  name: string;
   nameKana?: string | null;
+  isCustom: boolean;
   officialConfigured: false;
   customRules: AccountVarietyRule[];
 };
@@ -48,4 +47,8 @@ export type VarietyRuleActionResult =
 
 export type DeleteVarietyRuleActionResult =
   | { ok: true; source: VarietyRuleDataSource }
+  | { ok: false; source: VarietyRuleDataSource; message: string };
+
+export type CreateRiceVarietyActionResult =
+  | { ok: true; source: VarietyRuleDataSource; card: VarietyRuleCard }
   | { ok: false; source: VarietyRuleDataSource; message: string };

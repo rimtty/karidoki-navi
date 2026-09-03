@@ -141,6 +141,26 @@ test("ログイン済みでログイン画面を開くと登録フォームを�
   );
 });
 
+test("使い方を3段階で案内し、設定と登録へ移動できる", async ({ page }) => {
+  await login(page);
+  await page.getByRole("link", { name: "使い方" }).click();
+
+  await expect(page).toHaveURL(/\/app\/guide$/);
+  await expect(page.getByRole("heading", { name: "使い方" })).toBeVisible();
+  await expect(page.getByText("最初に「刈りどきの目安」を設定してください")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "品種ごとに、刈りどきを決める" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "刈りどきの目安を設定する" })).toBeVisible();
+
+  await page.getByRole("button", { name: "次へ" }).click();
+  await expect(page.getByRole("heading", { name: "田んぼの名前と日付を入れる" })).toBeVisible();
+  await expect(page.getByText("住所や地図は使いません。", { exact: false })).toBeVisible();
+
+  await page.getByRole("button", { name: "次へ" }).click();
+  await expect(page.getByRole("heading", { name: "あとは色を見て、刈る順番を確認" })).toBeVisible();
+  await expect(page.getByText("刈りどき", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "今日の田んぼを見る" })).toBeVisible();
+});
+
 test("PWA の manifest・Service Worker・オフライン表示を確認する", async ({ page, context }) => {
   await page.goto("/login");
   const manifest = await page.evaluate(async () => {
@@ -222,6 +242,15 @@ test("刈りどき設定は農家向けの3項目だけを大きく表示する"
   page.once("dialog", (dialog) => dialog.accept());
   await koshihikari.getByRole("button", { name: "削除する" }).click();
   await expect(page.getByRole("status")).toContainText("刈りどきの目安を削除しました");
+
+  await page.getByLabel("追加する品種名").fill("E2E試験米");
+  await page.getByRole("button", { name: "この品種を追加" }).click();
+  await expect(page.getByRole("status")).toContainText("品種を追加しました");
+  const addedVariety = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "E2E試験米" }) });
+  await expect(addedVariety.getByText("追加した品種")).toBeVisible();
+  await expect(addedVariety.getByLabel("刈り始めの積算気温")).toBeVisible();
 });
 
 test("メールログインから田んぼ登録・詳細・収穫・ログアウトまで通る", async ({ page }) => {
@@ -238,11 +267,11 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await page.locator("label").filter({ hasText: "大きめ" }).click();
   await expect(page.locator('input[name="size-class"][value="large"]')).toBeChecked();
   const varietySelect = page.getByLabel("品種");
-  await expect(varietySelect.locator("option")).toHaveCount(6);
+  await expect(varietySelect.locator("option")).toHaveCount(7);
   const varietyNames = await varietySelect.locator("option").allTextContents();
   expect(varietyNames[0]).toBe("品種を選んでください");
   expect(varietyNames.slice(1).sort()).toEqual(
-    ["あきさかり", "あきろまん", "コシヒカリ", "ヒノヒカリ", "恋の予感"].sort(),
+    ["あきさかり", "あきろまん", "コシヒカリ", "ヒノヒカリ", "恋の予感", "E2E試験米"].sort(),
   );
   await varietySelect.selectOption({ label: "コシヒカリ" });
   await page.getByLabel(/田植え日/).fill(PLANTING_DATE);
@@ -256,6 +285,21 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await expect(
     await page.evaluate(() => window.localStorage.getItem("karidoki-navi:simple-field-registration")),
   ).toBeNull();
+
+  const fieldUrl = page.url();
+  await page.goto("/app/settings/variety-rules");
+  const koshihikari = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "コシヒカリ" }) });
+  await koshihikari.getByRole("button", { name: "この品種の目安を登録する" }).click();
+  await koshihikari.getByLabel("刈り始めの積算気温").fill("1000");
+  await koshihikari.getByLabel("刈り終わりの積算気温").fill("1100");
+  await koshihikari.getByLabel("この目安の出どころ").fill("E2E後から設定する作業ノート");
+  await koshihikari.getByRole("button", { name: "この目安を保存する" }).click();
+  await expect(page.getByRole("status")).toContainText("未設定の田んぼにも反映しました");
+  await page.goto(fieldUrl);
+  await expect(page.getByText("刈りどきの基準が未設定です")).toHaveCount(0);
+  await expect(page.getByText("未設定", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "この田んぼの収穫を記録" }).click();
   const dialog = page.getByRole("dialog", { name: "収穫日を記録" });

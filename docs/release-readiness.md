@@ -2,7 +2,7 @@
 
 監査日: 2026-09-04
 最終確認時点: 2026-09-04
-対象: `feat/farmer-first-redesign`（公開前確認）
+対象: `codex/guide-custom-varieties`（公開前確認）
 
 この文書は、リポジトリ内で再現できる確認と、本番サービス側で別途承認が必要な確認を分けるための記録です。外部サービスの設定値、secret、個人情報は記載しません。
 
@@ -13,13 +13,13 @@
 | 項目 | 確認方法 | 判定 |
 | --- | --- | --- |
 | PWA資産とキャッシュ方針 | `node scripts/verify-pwa.mjs` | 合格（2026-09-03） |
-| lint・型・単体テスト・ビルド | `pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm build` | 合格（62テスト、2026-09-04） |
+| lint・型・単体テスト・ビルド | `pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm build` | 合格（64テスト、2026-09-04） |
 | フォーマット | package script・formatter設定を棚卸し | 未設定。CIの自動gateなし |
 | 依存関係 | `pnpm audit --prod --audit-level high` | high以上0件（2026-09-03） |
 | 追跡secret | CIのsecretパターン検査 | 該当なし（2026-09-03） |
 | 公開DBスキーマ | `pnpm exec supabase db lint --local --schema public --level warning --fail-on error` | エラーなし（local、2026-09-04） |
-| DB/RLS/RPC | `supabase/tests/*.sql`をローカルDBへ順に実行 | 全7ファイル合格（2026-09-04） |
-| ブラウザ | `pnpm e2e:local` | 6/6合格、ローカルSupabaseとローカルメール受信箱のみ（2026-09-04） |
+| DB/RLS/RPC | `supabase/tests/*.sql`をローカルDBへ順に実行 | 全9ファイル合格（2026-09-04） |
+| ブラウザ | `pnpm e2e:local` | 8/8合格、ローカルSupabaseとローカルメール受信箱のみ（2026-09-04） |
 
 CIは、アプリ品質確認に加えてローカルDBの公開スキーマlint、DB統合・セキュリティSQL、production依存監査、追跡secretパターン検査を実行します。DBテストはトランザクション内で実行し、本番DBへ接続しません。
 

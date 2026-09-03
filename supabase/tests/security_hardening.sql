@@ -19,6 +19,7 @@ declare
   authenticated_function_allowlist constant text[] := array[
     'can_access_field',
     'can_access_season',
+    'create_account_rice_variety',
     'delete_account_variety_rule',
     'find_nearest_weather_locations',
     'get_field_detail',

@@ -96,6 +96,7 @@ export type ConfirmedRiceVarietyName =
 
 export interface RiceVarietyOption {
   id: string;
-  name: ConfirmedRiceVarietyName;
+  name: string;
   nameKana?: string | null;
+  isCustom: boolean;
 }
