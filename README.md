@@ -33,7 +33,7 @@
 
 ## 認証とフォールバック
 
-認証にはSupabase Authを使います。メールアドレス＋パスワードとGoogleログインを選択でき、ログイン後のセッションはSSR用Cookieで維持します。メール確認とパスワード再設定は、同一サイトのPKCE callbackでセッションを確立してから処理します。本番のGoogle OAuthとAmazon SES SMTPは外部設定し、SESの本番利用承認と実配送を受入ゲートとして管理します。手順と未完了事項は [リリース運用手順](docs/release-runbook.md) にまとめています。
+認証にはSupabase Authを使います。メールアドレス＋パスワードとGoogleログインを選択でき、ログイン後のセッションはSSR用Cookieで維持します。メール確認とパスワード再設定は、同一サイトのPKCE callbackでセッションを確立してから処理します。本番のGoogle OAuthとAmazon SES SMTPは外部設定し、本番メールアドレスへの実配送を受入ゲートとして管理します。手順と未完了事項は [リリース運用手順](docs/release-runbook.md) にまとめています。
 
 Supabaseの公開設定がないローカル開発時だけ、明示的な開発用fixtureで画面を確認できます。非本番での接続失敗も開発用表示に限定され、本番環境に有効なSupabase設定がある場合はfixtureへ切り替えず、日本語のエラーと再試行導線を表示します。fixtureの圃場や気温を実際の収穫判断に使わないでください。
 
@@ -137,7 +137,7 @@ iPhone SafariとAndroid Chromeの実機受入、ホーム画面インストー�
 
 本番リリースは [docs/release-runbook.md](docs/release-runbook.md) の順序（DB、Edge Function、bounded smoke、Vault/Cron、MAFF、Vercel、Auth callback、監視／rollback）で実施します。本番外部状態はこのリポジトリのテストから変更しません。
 
-Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTPはSupabaseへ設定済みです。SESの本番利用承認と実メール配送は管理者が確認する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
+Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTPはSupabaseへ設定済みです。東京リージョンのSES本番利用承認とカスタムMAIL FROM設定は完了しており、実メール配送は管理者が確認する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
 
 リポジトリ内の合否と本番外部ゲートを分けた監査表は [リリース準備監査](docs/release-readiness.md) を参照してください。
 

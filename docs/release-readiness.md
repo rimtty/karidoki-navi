@@ -1,8 +1,8 @@
 # リリース準備監査
 
 監査日: 2026-09-03
-最終確認時点: 2026-09-03 21:11:03 JST
-対象: `main` (`921bac3`)
+最終確認時点: 2026-09-03 23:05:55 JST
+対象: `main` (`673f67d`)
 
 この文書は、リポジトリ内で再現できる確認と、本番サービス側で別途承認が必要な確認を分けるための記録です。外部サービスの設定値、secret、個人情報は記載しません。
 
@@ -48,7 +48,7 @@ CIは、アプリ品質確認に加えてローカルDBの公開スキーマlint
 2. **一部完了 — Supabase本番**: 管理側で050000までのmigration適用とDBサイズ確認済みです。バックアップ、空き容量、最終Production接続確認はリリース責任者が別途記録し、テストから本番DBへ接続しません。
 3. **完了 — 気象更新**: `update-weather` Edge Functionを再deployし、`verify_jwt=false`（Function側の専用Bearer検証）を確認済みです。世羅 `67316` の `2026-09-02` 単日bounded smokeは正時24点、平均 `26.47℃`、同条件再実行の冪等性まで確認済みです。Vault参照とCron 3本もactiveです。JMAの可用性は保証されないため、手動CSVの代替手順は維持します。
 4. **一部完了 — Google OAuth**: Google側client/redirect URIとSupabase providerの設定後、公開Auth settingsでGoogle providerが有効（`true`）であること、および認証開始がGoogle Accountsへ302で遷移することを確認済みです。専用アカウントで同意、`/auth/callback`、`/app`到達、ログアウトまで確認するまでは受入完了にしません。
-5. **一部完了 — 本番SMTP**: Amazon SESのSMTP資格情報をSupabaseへ設定済みで、ローカルE2Eでは再設定メール、PKCE callback、パスワード更新、再ログインまで確認済みです。SESの本番利用承認と本番メールアドレスへの実配送を確認するまでは受入完了にしません。
+5. **一部完了 — 本番SMTP**: Amazon SESのSMTP資格情報をSupabaseへ設定済みです。管理者共有のAWS通知により、東京リージョンで本番利用が承認され、SESサンドボックスから移動したこと、およびカスタムMAIL FROMドメインの設定成功を確認しました。ローカルE2Eでは再設定メール、PKCE callback、パスワード更新、再ログインまで確認済みです。本番メールアドレスへの新規登録確認メールとパスワード再設定メールの実配送を確認するまでは受入完了にしません。
 6. **未完了 — 実機PWA**: iPhone Safari/PWAとAndroid Chrome/PWAで、インストール、主要登録、地図、通信断からの復帰、屋外視認性を実機確認します。PlaywrightのPixel 7相当エミュレーションは実機ゲートの代わりにしません。
 7. **完了 — MAFF候補/API**: 2026年MAFF久井町の監査台帳2,010件、`ST_IsValid`/修復件数、SRID、MVTとbbox上限、取込rollback対象を確認済みです。bounded RPCの認証済み確認とanon拒否も完了しています。原本・NDJSONはGitへ追加しません。
 
