@@ -116,7 +116,7 @@ export function LoginForm({
 
       if (mode === "signup" && !result.data.session) {
         setMessage(
-          "確認メールを送信しました。メール内のリンクを開くと登録が完了します。",
+          "登録可能なメールアドレスには確認メールを送信しました。届かない場合は、すでにGoogleまたはメールアドレスで登録済みの可能性があります。ログインをお試しください。",
         );
         setPassword("");
         return;

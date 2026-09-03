@@ -122,6 +122,20 @@ test("未認証の /app はログインへ誘導し、ログインフォーム�
   );
 });
 
+test("ログイン済みでログイン画面を開くと登録フォームを隠す", async ({ page }) => {
+  await login(page);
+  await page.goto("/login");
+
+  await expect(page.getByRole("heading", { name: "ログイン済みです" })).toBeVisible();
+  await expect(page.getByText("メールアドレスでログイン済みです")).toBeVisible();
+  await expect(page.getByLabel("メールアドレス")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Googleでログイン" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "アプリへ戻る" })).toHaveAttribute(
+    "href",
+    "/app",
+  );
+});
+
 test("PWA の manifest・Service Worker・オフライン表示を確認する", async ({ page, context }) => {
   await page.goto("/login");
   const manifest = await page.evaluate(async () => {
