@@ -44,10 +44,10 @@ CIは、アプリ品質確認に加えてローカルDBの公開スキーマlint
 
 管理側共有の確認時点では、Preview smokeで`/`、`/login`、`/manifest.webmanifest`、`/sw.js`が200、未認証の`/app`が`/login?next=%2Fapp`への307でした。Production deployment `921bac3`もReadyで、Productionの`/`、`/login`、`/manifest.webmanifest`、`/sw.js`、`/maplibre-gl-worker.mjs`、`/maplibre-gl-shared.mjs`が200、未認証の`/app`がログインへの307となることを確認しています。390x844のProduction目視ではMVP版CTAの表示と`/login`への遷移を確認しました。
 
-1. **完了 — Vercel Production**: deployment `921bac3`のReady、主要routeの疎通、未認証リダイレクト、390x844目視、およびmain最新CI `33753369360`（quality 44秒、Mobile E2E 3分19秒）のsuccessを確認済みです。追跡`vercel.json`はなく、プロジェクト設定は外部管理です。今回の管理側確認では、コードから参照されていない`SUPABASE_SECRET_KEY`がProduction/Preview環境に残存しています。値は表示・記録せず、所有者承認後の削除を推奨します（この監査では外部状態を変更しません）。
+1. **完了 — Vercel Production**: deployment `921bac3`のReady、主要routeの疎通、未認証リダイレクト、390x844目視、およびmain最新CI `33753840591`（quality 51秒、Mobile E2E 3分24秒）のsuccessを確認済みです。追跡`vercel.json`はなく、プロジェクト設定は外部管理です。コードから参照されていなかった`SUPABASE_SECRET_KEY`は、所有者承認後にProduction/Previewの両方から削除し、公開設定2項目だけが残ることを再確認しました。
 2. **一部完了 — Supabase本番**: 管理側で050000までのmigration適用とDBサイズ確認済みです。バックアップ、空き容量、最終Production接続確認はリリース責任者が別途記録し、テストから本番DBへ接続しません。
 3. **完了 — 気象更新**: `update-weather` Edge Functionを再deployし、`verify_jwt=false`（Function側の専用Bearer検証）を確認済みです。世羅 `67316` の `2026-09-02` 単日bounded smokeは正時24点、平均 `26.47℃`、同条件再実行の冪等性まで確認済みです。Vault参照とCron 3本もactiveです。JMAの可用性は保証されないため、手動CSVの代替手順は維持します。
-4. **未完了 — Google OAuth**: SupabaseのGoogle providerは現在無効（`false`）です。Google側client/redirect URIとSupabase provider、Site URL・callback allow-listを設定して専用アカウントで確認するまで受入完了にしません。
+4. **一部完了 — Google OAuth**: Google側client/redirect URIとSupabase providerの設定後、公開Auth settingsでGoogle providerが有効（`true`）であること、および認証開始がGoogle Accountsへ302で遷移することを確認済みです。専用アカウントで同意、`/auth/callback`、`/app`到達、ログアウトまで確認するまでは受入完了にしません。
 5. **未完了 — 本番SMTP**: 送信元・認証・レート制限と確認メール／パスワード再設定を確認するまで受入完了にしません。
 6. **未完了 — 実機PWA**: iPhone Safari/PWAとAndroid Chrome/PWAで、インストール、主要登録、地図、通信断からの復帰、屋外視認性を実機確認します。PlaywrightのPixel 7相当エミュレーションは実機ゲートの代わりにしません。
 7. **完了 — MAFF候補/API**: 2026年MAFF久井町の監査台帳2,010件、`ST_IsValid`/修復件数、SRID、MVTとbbox上限、取込rollback対象を確認済みです。bounded RPCの認証済み確認とanon拒否も完了しています。原本・NDJSONはGitへ追加しません。
