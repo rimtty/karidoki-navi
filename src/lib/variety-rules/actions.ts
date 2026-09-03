@@ -10,6 +10,7 @@ import {
 } from "@/features/variety-rules/validation";
 import type {
   AccountVarietyRule,
+  CreateRiceVarietyActionResult,
   DeleteVarietyRuleActionResult,
   VarietyRuleActionResult,
 } from "@/features/variety-rules/types";
@@ -20,6 +21,8 @@ const SAVE_ERROR =
   "刈りどきの目安を保存できませんでした。入力内容を確認して再試行してください。";
 const DELETE_ERROR =
   "刈りどきの目安を削除できませんでした。通信状態を確認して再試行してください。";
+const CREATE_VARIETY_ERROR =
+  "品種を追加できませんでした。品種名を確認して再試行してください。";
 const AUTH_ERROR =
   "ログイン状態を確認できませんでした。ログインし直して再試行してください。";
 const PILOT_REGION_CODE = "34204-kui";
@@ -168,9 +171,73 @@ export async function saveVarietyRuleAction(input: {
     }
     revalidatePath("/app/settings/variety-rules");
     revalidatePath("/app/fields/new/1");
+    revalidatePath("/app");
+    revalidatePath("/app/fields/[fieldId]", "page");
     return { ok: true, source: "supabase", rule: asRule(data[0] as AccountRuleRow) };
   } catch {
     return { ok: false, source: "supabase", message: SAVE_ERROR };
+  }
+}
+
+export async function createRiceVarietyAction(input: {
+  name: string;
+}): Promise<CreateRiceVarietyActionResult> {
+  if (!getSupabasePublicConfig()) {
+    return {
+      ok: false,
+      source: "fixture",
+      message: "Supabase未接続の開発表示では、品種を追加できません。",
+    };
+  }
+
+  const name = typeof input?.name === "string"
+    ? input.name.trim().replace(/\s+/g, " ")
+    : "";
+  if (name.length < 1 || name.length > 30 || /[\u0000-\u001f\u007f]/.test(name)) {
+    return {
+      ok: false,
+      source: "supabase",
+      message: "品種名は30文字以内で入力してください。",
+    };
+  }
+
+  try {
+    const client = await createClient();
+    const accountId = await currentAccountId(client);
+    if (!accountId) return { ok: false, source: "supabase", message: AUTH_ERROR };
+
+    const { data, error } = await client.rpc("create_account_rice_variety", {
+      p_account_id: accountId,
+      p_name: name,
+    });
+    if (error || !data?.[0]) {
+      return {
+        ok: false,
+        source: "supabase",
+        message:
+          error?.code === "23505"
+            ? "この品種は、すでに登録されています。"
+            : messageForRpcError(error ?? {}, CREATE_VARIETY_ERROR),
+      };
+    }
+
+    const variety = data[0];
+    revalidatePath("/app/settings/variety-rules");
+    revalidatePath("/app/fields/new/1");
+    return {
+      ok: true,
+      source: "supabase",
+      card: {
+        id: variety.id,
+        name: variety.name,
+        nameKana: variety.name_kana,
+        isCustom: variety.owner_account_id !== null,
+        officialConfigured: false,
+        customRules: [],
+      },
+    };
+  } catch {
+    return { ok: false, source: "supabase", message: CREATE_VARIETY_ERROR };
   }
 }
 

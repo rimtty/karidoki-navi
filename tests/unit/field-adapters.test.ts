@@ -151,12 +151,13 @@ describe("field RPC adapters", () => {
 });
 
 describe("rice variety adapter", () => {
-  it("keeps only the confirmed active five and preserves product order", () => {
+  it("keeps active account varieties after the five defaults", () => {
     const varieties = adaptRiceVarietyRows([
       {
         id: "unknown",
-        name: "未知品種",
+        name: "にこまる",
         name_kana: null,
+        owner_account_id: "account-1",
         is_active: true,
         created_at: "",
         updated_at: "",
@@ -165,6 +166,7 @@ describe("rice variety adapter", () => {
         id: "hino",
         name: "ヒノヒカリ",
         name_kana: null,
+        owner_account_id: null,
         is_active: true,
         created_at: "",
         updated_at: "",
@@ -173,6 +175,7 @@ describe("rice variety adapter", () => {
         id: "kosh",
         name: "コシヒカリ",
         name_kana: null,
+        owner_account_id: null,
         is_active: true,
         created_at: "",
         updated_at: "",
@@ -181,6 +184,7 @@ describe("rice variety adapter", () => {
         id: "inactive",
         name: "恋の予感",
         name_kana: null,
+        owner_account_id: null,
         is_active: false,
         created_at: "",
         updated_at: "",
@@ -190,7 +194,9 @@ describe("rice variety adapter", () => {
     expect(varieties.map((variety) => variety.name)).toEqual([
       "コシヒカリ",
       "ヒノヒカリ",
+      "にこまる",
     ]);
+    expect(varieties.map((variety) => variety.isCustom)).toEqual([false, false, true]);
   });
 });
 

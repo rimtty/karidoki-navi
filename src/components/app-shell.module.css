@@ -58,6 +58,7 @@
   color: #587052;
   background: #f8faf5;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .accountMenu {
@@ -88,6 +89,14 @@
   color: #687467;
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+.accountPanel strong {
+  max-width: 230px;
+  overflow-wrap: anywhere;
+  color: #294b26;
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
 .accountPanel button {
@@ -123,6 +132,13 @@
   font-size: 0.63rem;
 }
 
+.accountAvatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .content {
   width: min(100%, 760px);
   min-height: calc(100svh - 132px);
@@ -141,7 +157,7 @@
   margin: 0 auto;
   padding: 6px 8px max(6px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   border-top: 1px solid rgba(49, 92, 43, 0.16);
   background: rgba(248, 250, 245, 0.97);

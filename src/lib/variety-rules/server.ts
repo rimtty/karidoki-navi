@@ -1,5 +1,6 @@
 import { FIXTURE_RICE_VARIETIES } from "@/features/fields/fixtures";
 import { CONFIRMED_RICE_VARIETY_NAMES } from "@/features/fields/view-model";
+import { adaptRiceVarietyRows } from "@/lib/fields/adapters";
 import {
   getSupabasePublicConfig,
   SUPABASE_CONFIG_ERROR,
@@ -78,6 +79,7 @@ function fixtureSettings(): VarietyRuleSettingsData {
     id: variety.id,
     name: variety.name,
     nameKana: variety.nameKana,
+    isCustom: variety.isCustom,
     officialConfigured: false,
     customRules: [],
   }));
@@ -119,9 +121,8 @@ export async function loadVarietyRuleSettings(): Promise<VarietyRuleSettingsData
     const [varietiesResult, regionsResult, rulesResult] = await Promise.all([
       client
         .from("rice_varieties")
-        .select("id, name, name_kana, is_active, created_at, updated_at")
+        .select("*")
         .eq("is_active", true)
-        .in("name", [...CONFIRMED_RICE_VARIETY_NAMES])
         .order("name"),
       client
         .from("rule_regions")
@@ -135,9 +136,11 @@ export async function loadVarietyRuleSettings(): Promise<VarietyRuleSettingsData
     if (regionsResult.error) throw regionsResult.error;
     if (rulesResult.error) throw rulesResult.error;
 
-    const varietyRows = (varietiesResult.data ?? []) as RiceVarietyRow[];
-    const varietyByName = new Map(varietyRows.map((row) => [row.name, row]));
-    if (CONFIRMED_RICE_VARIETY_NAMES.some((name) => !varietyByName.has(name))) {
+    const varieties = adaptRiceVarietyRows(
+      (varietiesResult.data ?? []) as RiceVarietyRow[],
+    );
+    const varietyNames = new Set(varieties.map((variety) => variety.name));
+    if (CONFIRMED_RICE_VARIETY_NAMES.some((name) => !varietyNames.has(name))) {
       throw new Error("品種マスターの初期5品種が揃っていません。");
     }
     const rules = ((rulesResult.data ?? []) as AccountRuleRow[]).map(asRule);
@@ -147,14 +150,14 @@ export async function loadVarietyRuleSettings(): Promise<VarietyRuleSettingsData
       current.push(rule);
       rulesByVariety.set(rule.varietyId, current);
     }
-    const cards: VarietyRuleCard[] = CONFIRMED_RICE_VARIETY_NAMES.map((name) => {
-      const row = varietyByName.get(name)!;
+    const cards: VarietyRuleCard[] = varieties.map((variety) => {
       return {
-        id: row.id,
-        name: name as VarietyRuleCard["name"],
-        nameKana: row.name_kana,
+        id: variety.id,
+        name: variety.name,
+        nameKana: variety.nameKana,
+        isCustom: variety.isCustom,
         officialConfigured: false,
-        customRules: rulesByVariety.get(row.id) ?? [],
+        customRules: rulesByVariety.get(variety.id) ?? [],
       };
     });
 

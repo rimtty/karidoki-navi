@@ -161,7 +161,6 @@ export async function loadRiceVarieties(): Promise<
       .from("rice_varieties")
       .select("*")
       .eq("is_active", true)
-      .in("name", [...CONFIRMED_RICE_VARIETY_NAMES])
       .order("name");
     if (error || !data) {
       if (canUseFixtureFallback()) return fixtureResult(FIXTURE_RICE_VARIETIES);
@@ -170,7 +169,8 @@ export async function loadRiceVarieties(): Promise<
 
     try {
       const varieties = adaptRiceVarietyRows(data);
-      if (varieties.length !== CONFIRMED_RICE_VARIETY_NAMES.length) {
+      const availableNames = new Set(varieties.map((variety) => variety.name));
+      if (CONFIRMED_RICE_VARIETY_NAMES.some((name) => !availableNames.has(name))) {
         if (canUseFixtureFallback()) return fixtureResult(FIXTURE_RICE_VARIETIES);
         return dataError(VARIETY_CONTRACT_ERROR);
       }

@@ -42,6 +42,7 @@ export type Database = {
           id: string;
           name: string;
           name_kana: string | null;
+          owner_account_id: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -50,6 +51,7 @@ export type Database = {
           id: string;
           name: string;
           name_kana: string | null;
+          owner_account_id: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -58,6 +60,7 @@ export type Database = {
           id: string;
           name: string;
           name_kana: string | null;
+          owner_account_id: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -305,6 +308,13 @@ export type Database = {
           area_m2: number | string;
           was_replayed: boolean;
         }>;
+      };
+      create_account_rice_variety: {
+        Args: {
+          p_account_id: string;
+          p_name: string;
+        };
+        Returns: Array<Database["public"]["Tables"]["rice_varieties"]["Row"]>;
       };
       register_simple_field_with_season: {
         Args: {
