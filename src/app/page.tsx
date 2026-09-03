@@ -4,18 +4,18 @@ import styles from "./page.module.css";
 const steps = [
   {
     number: "01",
-    title: "田んぼを登録",
+    title: "かんたん登録",
     description: "名前・大きさ・品種・田植え日・出穂日を入力します。",
   },
   {
     number: "02",
-    title: "出穂日を記録",
-    description: "品種と、穂が出そろった日を入力します。",
+    title: "気温を自動で積算",
+    description: "出穂日から毎日の平均気温を自動で積み上げます。",
   },
   {
     number: "03",
-    title: "刈りどきを見る",
-    description: "積算気温を自動更新し、田んぼを色分けします。",
+    title: "一覧で刈りどきを確認",
+    description: "毎朝、上から順に色分けされた田んぼを確認します。",
   },
 ];
 
