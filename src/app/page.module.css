@@ -64,6 +64,10 @@
   align-items: center;
 }
 
+.heroCopy {
+  min-width: 0;
+}
+
 .eyebrow,
 .sectionHeading > span {
   color: var(--forest-600);
@@ -92,6 +96,49 @@
   color: var(--muted);
   font-size: clamp(1rem, 1.7vw, 1.18rem);
   line-height: 1.9;
+}
+
+.ctaGroup {
+  margin-top: 28px;
+  display: grid;
+  justify-items: start;
+  gap: 9px;
+}
+
+.primaryCta {
+  min-height: 52px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 1px solid var(--forest-700);
+  border-radius: 999px;
+  color: #fff;
+  background: var(--forest-700);
+  box-shadow: 0 12px 24px rgba(49, 92, 43, 0.18);
+  font-size: 0.86rem;
+  font-weight: 800;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.primaryCta:hover,
+.primaryCta:focus-visible {
+  background: #244a21;
+  box-shadow: 0 15px 28px rgba(49, 92, 43, 0.24);
+}
+
+.primaryCta:active {
+  transform: translateY(1px);
+}
+
+.ctaNote {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.55;
 }
 
 .preview {
@@ -309,6 +356,10 @@
   .hero {
     padding-top: 52px;
     gap: 48px;
+  }
+
+  .ctaGroup {
+    margin-top: 24px;
   }
 
   .hero h1 {

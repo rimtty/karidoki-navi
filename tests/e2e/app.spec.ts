@@ -24,6 +24,27 @@ async function blockRemoteMapAssets(page: Page) {
   await page.route("https://demotiles.maplibre.org/**", (route: Route) => route.abort());
 }
 
+test("ランディングからMVP版のログイン導線を表示する", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.getByText("MVP版", { exact: true })).toBeVisible();
+  await expect(page.getByText("MVP版を公開中です。", { exact: true })).toBeVisible();
+
+  const loginLink = page.getByRole("link", {
+    name: "ログインして使う",
+    exact: true,
+  });
+  await expect(loginLink).toBeVisible();
+  await expect(loginLink).toHaveAttribute("href", "/login");
+  const box = await loginLink.boundingBox();
+  expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  expect((box?.y ?? Number.POSITIVE_INFINITY) + (box?.height ?? 0)).toBeLessThanOrEqual(844);
+
+  await loginLink.click();
+  await expect(page).toHaveURL(/\/login(?:\?|$)/);
+});
+
 test("未認証の /app はログインへ誘導し、ログインフォームを表示する", async ({ page }) => {
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login\?next=%2Fapp/);
