@@ -388,6 +388,12 @@
   font-weight: 850;
 }
 
+.numberInput input::placeholder {
+  color: #879584;
+  font-weight: 750;
+  opacity: 1;
+}
+
 .numberInput > span {
   position: absolute;
   top: 50%;
@@ -420,6 +426,17 @@
   font-size: 0.77rem;
   font-weight: 650;
   line-height: 1.55;
+}
+
+.referenceNote {
+  margin-top: -10px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  color: #566c52;
+  background: #e7f0e2;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.6;
 }
 
 .error {
