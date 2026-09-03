@@ -6,11 +6,7 @@ type RegistrationPageProps = {
   params: Promise<{ step: string }>;
 };
 
-export async function generateMetadata({ params }: RegistrationPageProps) {
-  const { step } = await params;
-  const number = Number(step);
-  return { title: number >= 1 && number <= 3 ? `田んぼ登録 ${number}/3` : "田んぼ登録" };
-}
+export const metadata = { title: "田んぼ登録" };
 
 export default async function FieldRegistrationPage({ params }: RegistrationPageProps) {
   const { step } = await params;

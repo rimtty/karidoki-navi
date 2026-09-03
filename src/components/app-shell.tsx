@@ -7,17 +7,11 @@ import { LogoutButton } from "@/features/auth/logout-button";
 import styles from "./app-shell.module.css";
 
 const navigation = [
-  { href: "/app", label: "地図", glyph: "⌖", match: (path: string) => path === "/app" },
-  {
-    href: "/app/fields",
-    label: "田んぼ一覧",
-    glyph: "▤",
-    match: (path: string) => path.startsWith("/app/fields") && !path.startsWith("/app/fields/new"),
-  },
+  { href: "/app", label: "田んぼ", glyph: "▤", match: (path: string) => path === "/app" || /^\/app\/fields\/[^/]+$/.test(path) },
   { href: "/app/fields/new/1", label: "登録", glyph: "+", match: (path: string) => path.startsWith("/app/fields/new") },
   {
     href: "/app/settings/variety-rules",
-    label: "品種ルール",
+    label: "設定",
     glyph: "⚙",
     match: (path: string) => path.startsWith("/app/settings/variety-rules"),
   },
@@ -29,14 +23,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
-        <Link className={styles.brand} href="/app" aria-label="刈りどきナビ 地図へ">
+        <Link className={styles.brand} href="/app" aria-label="刈りどきナビ 田んぼ一覧へ">
           <span className={styles.brandMark} aria-hidden="true">
             🌾
           </span>
           <span>刈りどきナビ</span>
         </Link>
         <div className={styles.headerMeta}>
-          <span className={styles.previewBadge}>開発プレビュー</span>
           <details className={styles.accountMenu}>
             <summary className={styles.accountButton} aria-label="アカウントメニュー">
               <span aria-hidden="true">○</span>

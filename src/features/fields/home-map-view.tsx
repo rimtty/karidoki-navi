@@ -1,85 +1,80 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { FieldMap } from "./field-map";
+import { useMemo, useState } from "react";
+import { DataLoadError } from "@/components/data-load-error";
+import { FixtureNotice } from "@/components/quality-notice";
 import {
   FIELD_FIXTURES,
   FIELD_STATUS_META,
-  PILOT_REGION,
   formatDate,
   formatTemp,
   type FieldStatus,
 } from "./fixtures";
-import type { FieldViewModel } from "./view-model";
-import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
-import { DataLoadError } from "@/components/data-load-error";
-import { StatusBadge } from "@/components/status-badge";
+import type { FieldSizeClass, FieldViewModel } from "./view-model";
 import styles from "./home-map-view.module.css";
 
-type Filter = "all" | FieldStatus;
+type Filter = "all" | "attention" | "growing" | "harvested";
 
-const filterOptions: Array<{ key: Filter; label: string }> = [
-  { key: "all", label: "すべて" },
-  { key: "ready", label: "適期" },
-  { key: "soon", label: "接近" },
-  { key: "not-configured", label: "未設定" },
-];
+const statusOrder: Record<FieldStatus, number> = {
+  ready: 0,
+  overdue: 1,
+  soon: 2,
+  growing: 3,
+  "not-configured": 4,
+  harvested: 5,
+};
 
-function countFor(fields: FieldViewModel[], status: FieldStatus): number {
-  return fields.filter((field) => field.status === status).length;
+const sizeLabels: Record<FieldSizeClass, string> = {
+  small: "小",
+  medium: "中",
+  large: "大",
+};
+
+function needsAttention(field: FieldViewModel): boolean {
+  return ["ready", "overdue", "soon", "not-configured"].includes(field.status);
 }
 
-function FieldSheet({ field, onClose }: { field: FieldViewModel; onClose: () => void }) {
+function actionMessage(field: FieldViewModel): string {
+  if (field.status === "ready") return "今が刈りどきです";
+  if (field.status === "overdue") return "早めに確認してください";
+  if (field.status === "soon") {
+    return field.referenceDays !== null ? `あと約${field.referenceDays}日` : "もうすぐ刈りどきです";
+  }
+  if (field.status === "growing") return "順調に育っています";
+  if (field.status === "harvested") return "収穫済みです";
+  return field.headingDate ? "刈りどき設定を確認" : "出穂日を入力してください";
+}
+
+function FieldCard({ field }: { field: FieldViewModel }) {
+  const meta = FIELD_STATUS_META[field.status];
   return (
-    <section className={styles.sheet} aria-label={`${field.name}の概要`} aria-live="polite">
-      <div className={styles.sheetHandle} aria-hidden="true" />
-      <div className={styles.sheetHeading}>
+    <Link className={`${styles.fieldCard} ${styles[meta.tone]}`} href={`/app/fields/${field.id}`}>
+      <div className={styles.cardTopline}>
+        <span className={styles.statusLabel}>{meta.label}</span>
+        <span className={styles.sizeLabel}>大きさ {sizeLabels[field.sizeClass]}</span>
+      </div>
+      <div className={styles.cardMain}>
         <div>
-          <p className={styles.sheetKicker}>選択中の圃場</p>
           <h2>{field.name}</h2>
-          <p className={styles.sheetSubline}>{field.variety ?? "品種未設定"}</p>
+          <p>{field.variety ?? "品種未設定"}</p>
         </div>
-        <div className={styles.sheetHeadingActions}>
-          <StatusBadge status={field.status} />
-          <button className={styles.closeButton} type="button" onClick={onClose} aria-label="圃場の選択を閉じる">
-            ×
-          </button>
-        </div>
+        <span className={styles.arrow} aria-hidden="true">›</span>
       </div>
-      <div className={styles.sheetMetrics}>
-        <div>
-          <span>出穂後積算</span>
-          <strong>{formatTemp(field.accumulatedTempC)}</strong>
-        </div>
-        <div>
-          <span>{field.remainingTempC !== null && field.remainingTempC < 0 ? "適期から" : "適期まで"}</span>
-          <strong className={field.remainingTempC !== null && field.remainingTempC <= 0 ? styles.metricEmphasis : ""}>
-            {field.remainingTempC !== null && field.remainingTempC < 0
-              ? formatTemp(Math.abs(field.remainingTempC))
-              : formatTemp(field.remainingTempC)}
-          </strong>
-        </div>
-        <div>
-          <span>面積</span>
-          <strong>{field.areaM2.toLocaleString("ja-JP")}㎡</strong>
-        </div>
+      <strong className={styles.actionMessage}>{actionMessage(field)}</strong>
+      <div className={styles.cardFacts}>
+        <span>出穂日 {formatDate(field.headingDate)}</span>
+        <span>積算 {formatTemp(field.accumulatedTempC)}</span>
       </div>
-      <QualityNotice
-        quality={field.dataQuality}
-        observedThrough={field.observedThrough}
-        missingDays={field.missingDays}
-        compact
-      />
-      <div className={styles.sheetFooter}>
-        <span className={styles.stationLabel}>
-          観測地点: {field.weatherStation ?? "未設定"}
-        </span>
-        <Link className={styles.detailLink} href={`/app/fields/${field.id}`}>
-          詳しく見る <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-    </section>
+      {field.dataQuality !== "complete" && field.status !== "not-configured" && (
+        <p className={styles.dataNotice}>
+          {field.dataQuality === "pending" && "気温を計算しています"}
+          {field.dataQuality === "incomplete" && "一部の気温データを確認中です"}
+          {field.dataQuality === "stale" && "気温データの更新が遅れています"}
+          {field.dataQuality === "error" && "気温データを取得できませんでした"}
+        </p>
+      )}
+    </Link>
   );
 }
 
@@ -96,153 +91,72 @@ export function HomeMapView({
   const dataSource = providedSource ?? "fixture";
   const dataError = providedError ?? null;
   const [filter, setFilter] = useState<Filter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [registrationMessage, setRegistrationMessage] = useState<string | null>(null);
+  const readyCount = initialFields.filter((field) => field.status === "ready").length;
+  const attentionCount = initialFields.filter(needsAttention).length;
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem("karidoki-navi:last-registration");
-    if (!stored) return;
-    let messageTimer: number | undefined;
-    try {
-      const registration = JSON.parse(stored) as { name?: string };
-      messageTimer = window.setTimeout(() => {
-        setRegistrationMessage(
-          registration.name
-            ? `${registration.name}を登録しました。初回計算は準備中です。`
-            : "田んぼを登録しました。初回計算は準備中です。",
-        );
-      }, 0);
-      window.localStorage.removeItem("karidoki-navi:last-registration");
-    } catch {
-      window.localStorage.removeItem("karidoki-navi:last-registration");
-    }
-    return () => {
-      if (messageTimer !== undefined) window.clearTimeout(messageTimer);
-    };
-  }, []);
-
-  const visibleFields = useMemo(
-    () =>
-      filter === "all"
-        ? initialFields
-        : initialFields.filter((field) => field.status === filter),
-    [filter, initialFields],
-  );
-  const selectedField = selectedId ? visibleFields.find((field) => field.id === selectedId) : undefined;
+  const fields = useMemo(() => {
+    const filtered = initialFields.filter((field) => {
+      if (filter === "attention") return needsAttention(field);
+      if (filter === "growing") return field.status === "growing";
+      if (filter === "harvested") return field.status === "harvested";
+      return true;
+    });
+    return [...filtered].sort((left, right) => statusOrder[left.status] - statusOrder[right.status]);
+  }, [filter, initialFields]);
 
   return (
     <div className={styles.screen}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>{PILOT_REGION.name}</p>
-          <h1>今日の刈りどき</h1>
-          <label className={styles.yearLabel}>
-            <span>年度</span>
-            <select defaultValue="2026" aria-label="表示する年度">
-              <option value="2026">2026年</option>
-              <option value="2025">2025年</option>
-            </select>
-          </label>
+          <p>広島県三原市久井町</p>
+          <h1>今日の田んぼ</h1>
+          <span>2026年</span>
         </div>
-        <div className={styles.headerActions}>
-          <Link className={styles.secondaryAction} href="/app/fields">
-            一覧
-          </Link>
-          <Link className={styles.primaryAction} href="/app/fields/new/1">
-            <span aria-hidden="true">＋</span>田んぼ登録
-          </Link>
-        </div>
+        <Link className={styles.addButton} href="/app/fields/new/1">
+          <span aria-hidden="true">＋</span> 登録
+        </Link>
       </header>
 
-      {registrationMessage && (
-        <div className={styles.registrationMessage} role="status">
-          <span aria-hidden="true">✓</span>
-          <span>{registrationMessage}</span>
-          <button type="button" onClick={() => setRegistrationMessage(null)} aria-label="登録メッセージを閉じる">
-            ×
-          </button>
-        </div>
-      )}
-
       {dataError && <DataLoadError message={dataError} />}
-      {dataSource === "fixture" && <FixtureNotice />}
+      {dataSource === "fixture" && <FixtureNotice compact />}
 
-      <section className={styles.statusSection} aria-labelledby="status-heading">
-        <div className={styles.sectionTitleRow}>
-          <div>
-            <p className={styles.sectionKicker}>FIELD STATUS</p>
-            <h2 id="status-heading">田んぼの状態</h2>
-          </div>
-          <span className={styles.updatedAt}>最終更新 {formatDate("2026-09-02")}</span>
+      <section className={styles.todaySummary} aria-label="今日の刈りどき状況">
+        <div>
+          <span>今が刈りどき</span>
+          <strong>{readyCount}<small>件</small></strong>
         </div>
-        <div className={styles.filters} role="group" aria-label="状態で絞り込む">
-          {filterOptions.map((option) => {
-            const count =
-              option.key === "all"
-                ? initialFields.length
-                : countFor(initialFields, option.key);
-            const active = filter === option.key;
-            return (
-              <button
-                className={`${styles.filterButton} ${active ? styles.filterActive : ""}`}
-                type="button"
-                key={option.key}
-                onClick={() => {
-                  setFilter(option.key);
-                  setSelectedId(null);
-                }}
-                aria-pressed={active}
-              >
-                <span>{option.label}</span>
-                <strong>{count}</strong>
-              </button>
-            );
-          })}
-        </div>
+        <p>{readyCount > 0 ? "上から順に田んぼを確認しましょう。" : "今日は刈りどきの田んぼはありません。"}</p>
       </section>
 
-      <section className={styles.mapSection} aria-labelledby="map-heading">
-        <div className={styles.sectionTitleRow}>
-          <div>
-            <p className={styles.sectionKicker}>FIELD MAP</p>
-            <h2 id="map-heading">圃場マップ</h2>
-          </div>
-          <span className={styles.mapInstruction}>区画をタップ</span>
-        </div>
-        <FieldMap
-          fields={visibleFields}
-          selectedId={selectedId}
-          onSelect={(field) => setSelectedId(field.id)}
-          ariaLabel={`${dataSource === "fixture" ? "開発用" : "圃場"}マップ。圃場を選択できます。`}
-        />
-        <div className={styles.legend} aria-label="状態の凡例">
-          {(["ready", "soon", "growing", "overdue", "not-configured"] as FieldStatus[]).map((status) => (
-            <span key={status}>
-              <i className={`${styles.legendSwatch} ${styles[FIELD_STATUS_META[status].tone]}`} aria-hidden="true" />
-              {FIELD_STATUS_META[status].label}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {selectedField ? (
-        <FieldSheet field={selectedField} onClose={() => setSelectedId(null)} />
-      ) : (
-        <div className={styles.emptySheet} role="status">
-          <span className={styles.emptySheetIcon} aria-hidden="true">
-            ⌖
-          </span>
-          <div>
-            <strong>圃場をタップすると詳細が開きます</strong>
-            <p>色だけでなく、状態ラベルと残り温度でも確認できます。</p>
-          </div>
-        </div>
-      )}
-
-      <div className={styles.mapFootnote}>
-        <span>地理院タイルを使用</span>
-        <span>収穫の判断は現地の状況とあわせて行ってください。</span>
+      <div className={styles.filters} role="group" aria-label="田んぼの表示を切り替える">
+        {([
+          ["all", "すべて", initialFields.length],
+          ["attention", "要確認", attentionCount],
+          ["growing", "登熟中", initialFields.filter((field) => field.status === "growing").length],
+          ["harvested", "収穫済", initialFields.filter((field) => field.status === "harvested").length],
+        ] as const).map(([value, label, count]) => (
+          <button key={value} type="button" aria-pressed={filter === value}
+            className={filter === value ? styles.filterActive : ""} onClick={() => setFilter(value)}>
+            <span>{label}</span><strong>{count}</strong>
+          </button>
+        ))}
       </div>
+
+      <section className={styles.fieldList} aria-label="田んぼ一覧">
+        <div className={styles.listHeading}>
+          <h2>刈る順に表示</h2>
+          <span>{fields.length}件</span>
+        </div>
+        {fields.length > 0 ? fields.map((field) => <FieldCard field={field} key={field.id} />) : (
+          <div className={styles.emptyState}>
+            <span aria-hidden="true">🌾</span>
+            <strong>表示する田んぼがありません</strong>
+            <p>「登録」から田んぼを追加できます。</p>
+          </div>
+        )}
+      </section>
+
+      <p className={styles.disclaimer}>刈りどきは目安です。稲の状態や天候も確認してください。</p>
     </div>
   );
 }

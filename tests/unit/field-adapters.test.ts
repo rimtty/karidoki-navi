@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adaptFieldDetailRow,
+  adaptFieldOverviewRows,
   adaptFieldMapRow,
   adaptParcelCandidateRow,
   adaptRiceVarietyRows,
@@ -23,6 +24,39 @@ const polygon = {
 };
 
 describe("field RPC adapters", () => {
+  it("converts a no-map field with size and planting date", () => {
+    const [field] = adaptFieldOverviewRows([{
+      field_id: "field-simple",
+      field_name: "家の前",
+      field_size_class: "MEDIUM",
+      season_id: "season-simple",
+      season_year: 2026,
+      variety_id: "variety-1",
+      variety_name: "コシヒカリ",
+      planting_date: "2026-05-18",
+      heading_date: "2026-08-05",
+      harvest_date: null,
+      accumulated_temp_c: "245.50",
+      maturity_status: "GROWING",
+      data_status: "COMPLETE",
+      accumulated_through: "2026-08-14",
+      missing_day_count: 0,
+      estimated_days_to_start: 21,
+    }]);
+
+    expect(field).toMatchObject({
+      name: "家の前",
+      sizeClass: "medium",
+      areaM2: null,
+      polygon: [],
+      plantingDate: "2026-05-18",
+      headingDate: "2026-08-05",
+      accumulationStartDate: "2026-08-05",
+      accumulatedTempC: 245.5,
+      status: "growing",
+    });
+  });
+
   it("converts Postgres numeric strings and MultiPolygon geometry", () => {
     const field = adaptFieldMapRow({
       field_id: "field-1",

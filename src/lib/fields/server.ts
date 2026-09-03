@@ -1,8 +1,8 @@
 import { getFieldFixture, FIELD_FIXTURES, FIXTURE_RICE_VARIETIES } from "@/features/fields/fixtures";
 import type { FieldViewModel, RiceVarietyOption } from "@/features/fields/view-model";
 import {
-  adaptFieldDetailRows,
-  adaptFieldMapRows,
+  adaptFieldDetailSimpleRows,
+  adaptFieldOverviewRows,
   adaptRiceVarietyRows,
   FieldAdapterError,
 } from "./adapters";
@@ -20,9 +20,9 @@ export type FieldDataResult<T> =
   | { data: null; source: "supabase"; error: string };
 
 const MAP_ERROR =
-  "圃場データを取得できませんでした。通信状態を確認して再試行してください。";
+  "田んぼの情報を取得できませんでした。通信状態を確認して再試行してください。";
 const DETAIL_ERROR =
-  "圃場の詳細を取得できませんでした。通信状態を確認して再試行してください。";
+  "田んぼの詳細を取得できませんでした。通信状態を確認して再試行してください。";
 const VARIETY_ERROR =
   "品種一覧を取得できませんでした。通信状態を確認して再試行してください。";
 const AUTH_ERROR =
@@ -74,7 +74,7 @@ export async function loadFieldMapData(
     const { client, authError } = await authenticatedClient();
     if (authError || !client) return dataError(authError ?? AUTH_ERROR);
 
-    const { data, error } = await client.rpc("get_field_map", {
+    const { data, error } = await client.rpc("get_field_overview", {
       p_year: year,
     });
     if (error || !data) {
@@ -83,7 +83,7 @@ export async function loadFieldMapData(
     }
 
     try {
-      return { data: adaptFieldMapRows(data), source: "supabase", error: null };
+      return { data: adaptFieldOverviewRows(data), source: "supabase", error: null };
     } catch (error) {
       if (canUseFixtureFallback() && error instanceof FieldAdapterError) {
         return fixtureResult(FIELD_FIXTURES);
@@ -111,7 +111,7 @@ export async function loadFieldDetailData(
     const { client, authError } = await authenticatedClient();
     if (authError || !client) return dataError(authError ?? AUTH_ERROR);
 
-    const { data, error } = await client.rpc("get_field_detail", {
+    const { data, error } = await client.rpc("get_field_detail_simple", {
       p_field_id: fieldId,
       p_year: year,
     });
@@ -123,7 +123,7 @@ export async function loadFieldDetailData(
     }
 
     try {
-      const fields = adaptFieldDetailRows(data);
+      const fields = adaptFieldDetailSimpleRows(data);
       return {
         data: fields[0] ?? null,
         source: "supabase",

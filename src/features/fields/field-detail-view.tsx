@@ -3,126 +3,65 @@
 import Link from "next/link";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FieldMap } from "./field-map";
-import {
-  FIELD_STATUS_META,
-  formatDate,
-  formatTemp,
-} from "./fixtures";
-import type { FieldViewModel } from "./view-model";
-import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
 import { DataLoadError } from "@/components/data-load-error";
-import { StatusBadge } from "@/components/status-badge";
+import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
 import { registerHarvestAction } from "@/lib/fields/actions";
+import { FIELD_STATUS_META, formatDate, formatTemp } from "./fixtures";
+import type { FieldSizeClass, FieldViewModel } from "./view-model";
 import styles from "./field-detail-view.module.css";
 
-function AccumulationChart({ values }: { values: number[] }) {
-  const max = Math.max(...values, 1);
+const sizeLabels: Record<FieldSizeClass, string> = { small: "小", medium: "中", large: "大" };
 
-  return (
-    <div className={styles.chart} role="img" aria-label="出穂後積算気温の推移（開発用フィクスチャ）">
-      <div className={styles.chartGrid} aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className={styles.bars}>
-        {values.map((value, index) => (
-          <div className={styles.barColumn} key={`${value}-${index}`}>
-            <div className={styles.barTrack}>
-              <div className={styles.bar} style={{ height: `${Math.max((value / max) * 100, 4)}%` }} />
-            </div>
-            <span>{index + 1}</span>
-          </div>
-        ))}
-      </div>
-      <div className={styles.chartAxis}>
-        <span>出穂後日数</span>
-        <span>累計（℃）</span>
-      </div>
-    </div>
-  );
-}
-
-function FieldDetailContent({
-  field,
-  dataSource,
-}: {
-  field: FieldViewModel;
-  dataSource: "supabase" | "fixture";
-}) {
+function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; dataSource: "supabase" | "fixture" }) {
   const router = useRouter();
   const [showHarvest, setShowHarvest] = useState(false);
-  const harvestButtonRef = useRef<HTMLButtonElement | null>(null);
-  const harvestPanelRef = useRef<HTMLDivElement | null>(null);
-  const harvestCloseRef = useRef<HTMLButtonElement | null>(null);
-  const harvestDateRef = useRef<HTMLInputElement | null>(null);
   const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "2026-09-03");
   const [harvested, setHarvested] = useState(Boolean(field.harvestDate));
   const [notice, setNotice] = useState<string | null>(null);
   const [harvestError, setHarvestError] = useState<string | null>(null);
   const [harvestPending, setHarvestPending] = useState(false);
+  const harvestButtonRef = useRef<HTMLButtonElement | null>(null);
+  const harvestPanelRef = useRef<HTMLDivElement | null>(null);
+  const harvestCloseRef = useRef<HTMLButtonElement | null>(null);
+  const harvestDateRef = useRef<HTMLInputElement | null>(null);
   const harvestPendingRef = useRef(false);
-  const rule = field.rule;
-  const chartValues = field.dailyAccumulation;
-  const statusMeta = FIELD_STATUS_META[field.status];
-  const detailSummary = useMemo(() => {
-    if (field.status === "not-configured") return "出穂日・品種を登録すると積算を開始します。";
-    if (field.status === "overdue") return "適期終了温度を超えています。現地の状態を確認してください。";
-    if (field.status === "ready") return "適期の範囲内です。現地の状態とあわせて収穫時期を判断してください。";
-    if (field.status === "soon") return "適期開始に近づいています。直近の気温傾向は参考値です。";
-    return "登熟中です。積算値は目安として確認してください。";
-  }, [field.status]);
-  const showHarvestDialogPreviously = useRef(false);
+  const dialogWasOpen = useRef(false);
+  const status = harvested ? "harvested" : field.status;
+  const statusMeta = FIELD_STATUS_META[status];
 
-  function closeHarvestPanel() {
-    setShowHarvest(false);
-  }
+  const summary = useMemo(() => {
+    if (status === "harvested") return "この田んぼは収穫済みです。";
+    if (status === "ready") return "今が刈りどきです。稲と天候を確認しましょう。";
+    if (status === "overdue") return "刈りどきを過ぎています。早めに田んぼを確認してください。";
+    if (status === "soon") return field.referenceDays !== null ? `刈りどきまで、あと約${field.referenceDays}日です。` : "刈りどきが近づいています。";
+    if (status === "growing") return "順調に登熟しています。";
+    return "この品種の刈りどき設定を確認してください。";
+  }, [field.referenceDays, status]);
 
   useEffect(() => {
     if (showHarvest) {
-      window.setTimeout(() => {
-        if (harvestDateRef.current) {
-          harvestDateRef.current.focus();
-        } else {
-          harvestCloseRef.current?.focus();
-        }
-      }, 0);
-    } else if (showHarvestDialogPreviously.current) {
+      window.setTimeout(() => harvestDateRef.current?.focus(), 0);
+    } else if (dialogWasOpen.current) {
       harvestButtonRef.current?.focus();
     }
-    showHarvestDialogPreviously.current = showHarvest;
+    dialogWasOpen.current = showHarvest;
   }, [showHarvest]);
 
-function handleHarvestDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handleDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!showHarvest || !harvestPanelRef.current) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      closeHarvestPanel();
+      setShowHarvest(false);
       return;
     }
     if (event.key !== "Tab") return;
-
-    const focusable = Array.from(
-      harvestPanelRef.current.querySelectorAll<HTMLElement>(
-        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
-      ),
-    ).filter((element) => !element.hasAttribute("disabled"));
-    if (focusable.length === 0) {
-      event.preventDefault();
-      return;
-    }
+    const focusable = Array.from(harvestPanelRef.current.querySelectorAll<HTMLElement>("button, input, [href], [tabindex]:not([tabindex='-1'])"))
+      .filter((element) => !element.hasAttribute("disabled"));
+    if (!focusable.length) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    const active = document.activeElement;
-    if (event.shiftKey && active === first) {
-      event.preventDefault();
-      last.focus();
-    }
-    if (!event.shiftKey && active === last) {
-      event.preventDefault();
-      first.focus();
-    }
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
   async function registerHarvest() {
@@ -130,35 +69,21 @@ function handleHarvestDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     harvestPendingRef.current = true;
     setHarvestPending(true);
     setHarvestError(null);
-
     try {
       if (dataSource === "supabase") {
         if (!field.seasonId) {
-          setHarvestError("この年度の作付けが見つかりません。登録内容を確認してください。");
+          setHarvestError("この年の作付けが見つかりません。");
           return;
         }
-        const result = await registerHarvestAction({
-          cropSeasonId: field.seasonId,
-          harvestDate,
-          accumulatedTempC: field.accumulatedTempC,
-        });
-        if (!result.ok) {
-          setHarvestError(result.message);
-          return;
-        }
-      } else {
-        window.localStorage.setItem(
-          `karidoki-navi:harvested:${field.id}`,
-          JSON.stringify({ harvestDate, accumulatedTempC: field.accumulatedTempC }),
-        );
+        const result = await registerHarvestAction({ cropSeasonId: field.seasonId, harvestDate, accumulatedTempC: field.accumulatedTempC });
+        if (!result.ok) { setHarvestError(result.message); return; }
       }
-
       setHarvested(true);
       setShowHarvest(false);
       setNotice(`${formatDate(harvestDate)}の収穫を記録しました。`);
       if (dataSource === "supabase") router.refresh();
     } catch {
-      setHarvestError("収穫を登録できませんでした。通信状態を確認して再試行してください。");
+      setHarvestError("収穫を登録できませんでした。もう一度お試しください。");
     } finally {
       harvestPendingRef.current = false;
       setHarvestPending(false);
@@ -167,267 +92,65 @@ function handleHarvestDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
 
   return (
     <div className={styles.screen}>
-      <div className={styles.breadcrumbs}>
-        <Link href="/app">地図</Link>
-        <span aria-hidden="true">/</span>
-        <Link href="/app/fields">田んぼ一覧</Link>
-        <span aria-hidden="true">/</span>
-        <span>{field.name}</span>
-      </div>
-
+      <Link className={styles.backLink} href="/app">‹ 田んぼ一覧へ</Link>
       <header className={styles.pageHeader}>
-        <div>
-          <p className={styles.eyebrow}>FIELD DETAIL</p>
-          <h1>{field.name}</h1>
-          <p className={styles.subline}>{field.variety ?? "品種未設定"}</p>
-        </div>
-        <StatusBadge status={harvested ? "harvested" : field.status} />
+        <div><p>田んぼの詳細</p><h1>{field.name}</h1><span>{field.variety ?? "品種未設定"}・大きさ {sizeLabels[field.sizeClass]}</span></div>
       </header>
+      {dataSource === "fixture" && <FixtureNotice compact />}
+      {notice && <div className={styles.successNotice} role="status"><span>{notice}</span><button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">×</button></div>}
 
-      {dataSource === "fixture" && <FixtureNotice />}
-
-      {notice && (
-        <div className={styles.successNotice} role="status">
-          <span aria-hidden="true">✓</span>
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            aria-label="通知を閉じる"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      <section className={`${styles.statusCard} ${styles[statusMeta.tone]}`} aria-labelledby="current-status">
-        <div className={styles.statusCardHeading}>
-          <div>
-            <p className={styles.cardKicker}>CURRENT STATUS</p>
-            <h2 id="current-status">{statusMeta.label}</h2>
-          </div>
-          <span className={styles.statusGlyph} aria-hidden="true">
-            {statusMeta.glyph}
-          </span>
-        </div>
-        <p className={styles.statusSummary}>{detailSummary}</p>
-        <div className={styles.bigMetrics}>
-          <div>
-            <span>現在の積算気温</span>
-            <strong>{formatTemp(field.accumulatedTempC)}</strong>
-          </div>
-          <div>
-            <span>{field.remainingTempC !== null && field.remainingTempC < 0 ? "適期終了から" : "適期開始まで"}</span>
-            <strong>
-              {field.remainingTempC !== null && field.remainingTempC < 0
-                ? `${formatTemp(Math.abs(field.remainingTempC))}超過`
-                : formatTemp(field.remainingTempC)}
-            </strong>
-          </div>
-          <div>
-            <span>参考残り日数</span>
-            <strong>{field.referenceDays !== null ? `約${field.referenceDays}日` : "表示なし"}</strong>
-          </div>
-        </div>
-        {field.referenceDays !== null && (
-          <p className={styles.referenceNote}>直近の気温傾向による参考値。天気予報ではありません。</p>
-        )}
+      <section className={`${styles.statusCard} ${styles[statusMeta.tone]}`}>
+        <span className={styles.statusLabel}>{statusMeta.label}</span>
+        <h2>{summary}</h2>
+        <div className={styles.mainMetric}><span>出穂後の積算気温</span><strong>{formatTemp(field.accumulatedTempC)}</strong></div>
+        {field.referenceDays !== null && status === "soon" && <p className={styles.days}>あと約 {field.referenceDays} 日</p>}
       </section>
 
-      <QualityNotice
-        quality={field.dataQuality}
-        observedThrough={field.observedThrough}
-        missingDays={field.missingDays}
-      />
+      <QualityNotice quality={field.dataQuality} observedThrough={field.observedThrough} missingDays={field.missingDays} compact />
 
-      <section className={styles.panel} aria-labelledby="rule-heading">
-        <div className={styles.panelHeading}>
-          <div>
-            <p className={styles.cardKicker}>APPLIED RULE</p>
-            <h2 id="rule-heading">適用ルール</h2>
-          </div>
-          {dataSource === "fixture" && <span className={styles.devPill}>開発用</span>}
-        </div>
-        {rule ? (
-          <>
-            <div className={styles.ruleGrid}>
-              <div>
-                <span>適期開始</span>
-                <strong>{formatTemp(rule.startTempC)}</strong>
-              </div>
-              <div>
-                <span>適期中心</span>
-                <strong>{formatTemp(rule.targetTempC)}</strong>
-              </div>
-              <div>
-                <span>適期終了</span>
-                <strong>{formatTemp(rule.endTempC)}</strong>
-              </div>
-            </div>
-            <div className={styles.ruleWarning} role="note">
-              <strong>{rule.label}</strong>
-              <span>{rule.source}。本番の営農判断には使用しないでください。</span>
-            </div>
-          </>
-        ) : (
-          <div className={styles.unconfiguredRule}>
-            <strong>公式ルール未設定</strong>
-            <span>対象地域・品種の根拠を確認後に適用します。</span>
-          </div>
-        )}
-      </section>
-
-      <section className={styles.panel} aria-labelledby="metadata-heading">
-        <div className={styles.panelHeading}>
-          <div>
-            <p className={styles.cardKicker}>DATA SOURCES</p>
-            <h2 id="metadata-heading">登録・データ情報</h2>
-          </div>
-        </div>
-        <dl className={styles.metadata}>
-          <div>
-            <dt>面積</dt>
-            <dd>{field.areaM2.toLocaleString("ja-JP")}㎡</dd>
-          </div>
-          <div>
-            <dt>出穂日</dt>
-            <dd>{formatDate(field.headingDate)}</dd>
-          </div>
-          <div>
-            <dt>積算開始日</dt>
-            <dd>{formatDate(field.accumulationStartDate)}</dd>
-          </div>
-          <div>
-            <dt>観測地点</dt>
-            <dd>{field.weatherStation ?? "未設定"}</dd>
-          </div>
-          <div>
-            <dt>反映済み日</dt>
-            <dd>{formatDate(field.observedThrough)}</dd>
-          </div>
-          <div>
-            <dt>データ品質</dt>
-            <dd>{field.dataQuality === "complete" ? "対象期間の値あり" : "要確認"}</dd>
-          </div>
+      <section className={styles.infoPanel}>
+        <h2>登録内容</h2>
+        <dl>
+          <div><dt>田んぼの大きさ</dt><dd>{sizeLabels[field.sizeClass]}</dd></div>
+          <div><dt>品種</dt><dd>{field.variety ?? "未設定"}</dd></div>
+          <div><dt>田植え日</dt><dd>{formatDate(field.plantingDate)}</dd></div>
+          <div><dt>出穂日</dt><dd>{formatDate(field.headingDate)}</dd></div>
+          <div><dt>気温の反映</dt><dd>{formatDate(field.observedThrough)}まで</dd></div>
         </dl>
       </section>
 
-      {chartValues.length > 0 && (
-        <section className={styles.panel} aria-labelledby="chart-heading">
-          <div className={styles.panelHeading}>
-            <div>
-              <p className={styles.cardKicker}>ACCUMULATION</p>
-              <h2 id="chart-heading">日別積算グラフ</h2>
-            </div>
-            <span className={styles.chartCaption}>開発用表示</span>
-          </div>
-          <AccumulationChart values={chartValues} />
-        </section>
+      {status === "not-configured" && (
+        <aside className={styles.settingNotice}>
+          <div><strong>刈りどきの基準が未設定です</strong><p>品種に合わせた積算気温の基準を設定してください。</p></div>
+          <Link href="/app/settings/variety-rules">設定を見る</Link>
+        </aside>
       )}
 
-      <section className={styles.mapPanel} aria-labelledby="location-heading">
-        <div className={styles.panelHeading}>
-          <div>
-            <p className={styles.cardKicker}>LOCATION</p>
-            <h2 id="location-heading">圃場の位置</h2>
-          </div>
-        </div>
-        <FieldMap fields={[field]} selectedId={field.id} ariaLabel={`${field.name}の位置`} className={styles.detailMap} />
-      </section>
-
-      <section className={styles.actions} aria-label="圃場の操作">
-        <Link className={styles.secondaryAction} href="/app/fields/new/2">
-          作付けを編集
-        </Link>
-        <button className={styles.secondaryAction} type="button" onClick={() => setNotice("観測地点の変更は準備中です。現在は開発用地点を表示しています。")}>
-          観測地点を変更
-        </button>
-        <button
-          ref={harvestButtonRef}
-          className={styles.primaryAction}
-          type="button"
-          onClick={() => setShowHarvest(true)}
-          disabled={harvested}
-        >
-          {harvested ? "収穫記録済み" : "収穫を登録"}
-        </button>
-      </section>
+      <button ref={harvestButtonRef} className={styles.harvestButton} type="button" onClick={() => setShowHarvest(true)} disabled={harvested}>
+        {harvested ? "収穫を記録済み" : "この田んぼの収穫を記録"}
+      </button>
 
       {showHarvest && (
-        <div
-          ref={harvestPanelRef}
-          className={styles.harvestPanel}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="harvest-heading"
-          onKeyDown={handleHarvestDialogKeyDown}
-        >
-          <div className={styles.panelHeading}>
-            <div>
-              <p className={styles.cardKicker}>HARVEST RECORD</p>
-              <h2 id="harvest-heading">収穫を登録</h2>
-            </div>
-            <button
-              ref={harvestCloseRef}
-              className={styles.panelClose}
-              type="button"
-              onClick={closeHarvestPanel}
-              aria-label="収穫登録を閉じる"
-            >
-              ×
-            </button>
-          </div>
-          <p className={styles.harvestHelp}>収穫日と、その時点の積算値を履歴として保存します。</p>
-          {harvestError && <p className={styles.inlineWarning} role="alert">{harvestError}</p>}
-          <label className={styles.dateField} htmlFor="harvest-date">
-            <span>収穫日</span>
-            <input
-              id="harvest-date"
-              ref={harvestDateRef}
-              type="date"
-              value={harvestDate}
-              onChange={(event) => setHarvestDate(event.target.value)}
-            />
-          </label>
-          <div className={styles.harvestPreview}>
-            <span>収穫時積算気温</span>
-            <strong>{formatTemp(field.accumulatedTempC)}</strong>
-          </div>
-          <div className={styles.harvestActions}>
-            <button className={styles.secondaryAction} type="button" onClick={closeHarvestPanel}>
-              キャンセル
-            </button>
-            <button className={styles.primaryAction} type="button" onClick={registerHarvest} disabled={!harvestDate || harvestPending}>
-              {harvestPending ? "登録中…" : "登録する"}
-            </button>
+        <div className={styles.dialogBackdrop}>
+          <div ref={harvestPanelRef} className={styles.harvestPanel} role="dialog" aria-modal="true" aria-labelledby="harvest-heading" onKeyDown={handleDialogKeyDown}>
+            <div className={styles.dialogHeading}><h2 id="harvest-heading">収穫日を記録</h2><button ref={harvestCloseRef} type="button" onClick={() => setShowHarvest(false)} aria-label="閉じる">×</button></div>
+            <p>この田んぼを収穫した日を選んでください。</p>
+            {harvestError && <p className={styles.inlineWarning} role="alert">{harvestError}</p>}
+            <label htmlFor="harvest-date"><span>収穫日</span><input ref={harvestDateRef} id="harvest-date" type="date" value={harvestDate} onChange={(event) => setHarvestDate(event.target.value)} /></label>
+            <div className={styles.dialogActions}><button type="button" onClick={() => setShowHarvest(false)}>やめる</button><button type="button" onClick={registerHarvest} disabled={!harvestDate || harvestPending}>{harvestPending ? "記録しています…" : "記録する"}</button></div>
           </div>
         </div>
       )}
-
-      <p className={styles.disclaimer}>成熟状態は補助情報です。圃場の状態、乾燥条件、地域の指針なども確認してください。</p>
+      <p className={styles.disclaimer}>刈りどきは目安です。稲の状態や天候も確認してください。</p>
     </div>
   );
 }
 
-export function FieldDetailView({
-  field,
-  dataSource: providedSource,
-  dataError: providedError,
-}: {
+export function FieldDetailView({ field, dataSource: providedSource, dataError: providedError }: {
   field: FieldViewModel | null;
   dataSource?: "supabase" | "fixture";
   dataError?: string | null;
 }) {
-  const dataSource = providedSource ?? "fixture";
-  const dataError = providedError ?? null;
-  if (!field) {
-    return (
-      <div className={styles.screen}>
-        <DataLoadError
-          message={dataError ?? "圃場が見つかりません。一覧から選び直してください。"}
-        />
-      </div>
-    );
-  }
-  return <FieldDetailContent field={field} dataSource={dataSource} />;
+  if (!field) return <div className={styles.screen}><DataLoadError message={providedError ?? "田んぼが見つかりません。"} /></div>;
+  return <FieldDetailContent field={field} dataSource={providedSource ?? "fixture"} />;
 }

@@ -23,6 +23,8 @@ export type DataQuality =
 
 export type Coordinate = [number, number];
 
+export type FieldSizeClass = "small" | "medium" | "large";
+
 export type ParcelMultiPolygon = {
   type: "MultiPolygon";
   coordinates: Coordinate[][][];
@@ -59,8 +61,10 @@ export interface FieldViewModel {
   varietyId?: string | null;
   year?: number | null;
   seasonId?: string | null;
-  areaM2: number;
+  sizeClass: FieldSizeClass;
+  areaM2: number | null;
   polygon: Coordinate[];
+  plantingDate: string | null;
   headingDate: string | null;
   accumulationStartDate: string | null;
   accumulatedTempC: number | null;

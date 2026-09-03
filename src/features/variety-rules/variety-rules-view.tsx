@@ -334,13 +334,13 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
     <div className={styles.screen}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>SETTINGS / VARIETY RULES</p>
-          <h1>品種ルール設定</h1>
+          <p className={styles.eyebrow}>刈りどきの設定</p>
+          <h1>品種ごとの基準</h1>
           <p className={styles.pageLead}>
             広島県三原市久井町で使う、出穂後積算日平均気温の適期を登録します。公式ルールが確認できない品種は未設定のままです。
           </p>
         </div>
-        <Link className={styles.backLink} href="/app">地図へ戻る</Link>
+        <Link className={styles.backLink} href="/app">田んぼ一覧へ戻る</Link>
       </header>
 
       {initialData.error && <DataLoadError message={initialData.error} />}

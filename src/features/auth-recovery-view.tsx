@@ -22,7 +22,7 @@ export function AuthRecoveryView({ mode }: AuthRecoveryViewProps) {
           <span>刈りどきナビ</span>
         </Link>
         <div className={styles.heading}>
-          <p className={styles.eyebrow}>ACCOUNT RECOVERY</p>
+          <p className={styles.eyebrow}>アカウントの復旧</p>
           <h1>{isRequest ? "パスワード再設定" : "新しいパスワード"}</h1>
           <p>
             {isRequest

@@ -30,7 +30,7 @@ export function AuthLoginView({
         </Link>
         <div className={styles.heading}>
           <p className={styles.eyebrow}>
-            {authenticatedAccount ? "SIGNED IN" : "WELCOME BACK"}
+            {authenticatedAccount ? "ログイン状態" : "おかえりなさい"}
           </p>
           <h1>{authenticatedAccount ? "ログイン済みです" : "ログイン"}</h1>
           <p>

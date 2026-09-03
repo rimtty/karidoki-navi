@@ -10,7 +10,7 @@ import {
   FIELD_STATUS_META,
   formatTemp,
 } from "./fixtures";
-import type { FieldStatus, FieldViewModel } from "./view-model";
+import type { FieldSizeClass, FieldStatus, FieldViewModel } from "./view-model";
 import styles from "./field-list-view.module.css";
 
 const sortOrder: Record<FieldStatus, number> = {
@@ -28,6 +28,8 @@ const filterOptions: Array<{ value: "all" | FieldStatus; label: string }> = [
   { value: "soon", label: "接近" },
   { value: "not-configured", label: "未設定" },
 ];
+
+const sizeLabels: Record<FieldSizeClass, string> = { small: "小", medium: "中", large: "大" };
 
 export function FieldListView({
   initialFields: providedFields,
@@ -54,7 +56,7 @@ export function FieldListView({
     <div className={styles.screen}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>FIELD LIST / 2026</p>
+          <p className={styles.eyebrow}>2026年の田んぼ</p>
           <h1>田んぼ一覧</h1>
           <p className={styles.pageLead}>刈取適期に近い順に表示しています。</p>
         </div>
@@ -77,7 +79,7 @@ export function FieldListView({
             ))}
           </select>
         </label>
-        <span className={styles.resultCount}>{fields.length}圃場</span>
+        <span className={styles.resultCount}>{fields.length}件</span>
       </div>
 
       <section className={styles.list} aria-label="田んぼ一覧">
@@ -104,8 +106,8 @@ export function FieldListView({
                 </strong>
               </div>
               <div>
-                <span>面積</span>
-                <strong>{field.areaM2.toLocaleString("ja-JP")}㎡</strong>
+                <span>大きさ</span>
+                <strong>{sizeLabels[field.sizeClass]}</strong>
               </div>
             </div>
             <QualityNotice
@@ -115,7 +117,7 @@ export function FieldListView({
               compact
             />
             <div className={styles.cardFooter}>
-              <span>{FIELD_STATUS_META[field.status].label}の圃場</span>
+              <span>{FIELD_STATUS_META[field.status].label}の田んぼ</span>
               <span className={styles.arrow} aria-hidden="true">
                 →
               </span>

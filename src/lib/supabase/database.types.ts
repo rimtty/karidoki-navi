@@ -154,6 +154,69 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_field_overview: {
+        Args: { p_year: number };
+        Returns: Array<{
+          field_id: string;
+          field_name: string;
+          field_size_class: "SMALL" | "MEDIUM" | "LARGE";
+          season_id: string | null;
+          season_year: number | null;
+          variety_id: string | null;
+          variety_name: string | null;
+          planting_date: string | null;
+          heading_date: string | null;
+          harvest_date: string | null;
+          accumulated_temp_c: number | string | null;
+          maturity_status:
+            | "NOT_CONFIGURED"
+            | "BEFORE_HEADING"
+            | "GROWING"
+            | "GROWING_LATE"
+            | "HARVEST_SOON"
+            | "HARVEST_READY"
+            | "OVERDUE"
+            | "HARVESTED"
+            | null;
+          data_status: "PENDING" | "COMPLETE" | "INCOMPLETE" | "STALE" | "ERROR" | null;
+          accumulated_through: string | null;
+          missing_day_count: number | null;
+          estimated_days_to_start: number | null;
+        }>;
+      };
+      get_field_detail_simple: {
+        Args: { p_field_id: string; p_year?: number | null };
+        Returns: Array<{
+          field_id: string;
+          field_name: string;
+          field_size_class: "SMALL" | "MEDIUM" | "LARGE";
+          season_id: string | null;
+          season_year: number | null;
+          variety_id: string | null;
+          variety_name: string | null;
+          planting_date: string | null;
+          heading_date: string | null;
+          harvest_date: string | null;
+          harvest_accumulated_temp_c: number | string | null;
+          lifecycle_status: "ACTIVE" | "HARVESTED" | "ARCHIVED" | null;
+          accumulated_temp_c: number | string | null;
+          maturity_status:
+            | "NOT_CONFIGURED"
+            | "BEFORE_HEADING"
+            | "GROWING"
+            | "GROWING_LATE"
+            | "HARVEST_SOON"
+            | "HARVEST_READY"
+            | "OVERDUE"
+            | "HARVESTED"
+            | null;
+          data_status: "PENDING" | "COMPLETE" | "INCOMPLETE" | "STALE" | "ERROR" | null;
+          accumulated_through: string | null;
+          valid_day_count: number | null;
+          missing_day_count: number | null;
+          estimated_days_to_start: number | null;
+        }>;
+      };
       get_field_map: {
         Args: {
           p_year: number;
@@ -240,6 +303,23 @@ export type Database = {
           field_id: string;
           crop_season_id: string;
           area_m2: number | string;
+          was_replayed: boolean;
+        }>;
+      };
+      register_simple_field_with_season: {
+        Args: {
+          p_idempotency_key: string;
+          p_field_name: string;
+          p_size_class: "SMALL" | "MEDIUM" | "LARGE";
+          p_year: number;
+          p_variety_id: string;
+          p_planting_date?: string | null;
+          p_heading_date?: string | null;
+        };
+        Returns: Array<{
+          field_id: string;
+          crop_season_id: string;
+          size_class: "SMALL" | "MEDIUM" | "LARGE";
           was_replayed: boolean;
         }>;
       };
