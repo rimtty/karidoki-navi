@@ -51,7 +51,7 @@ MVPの `JmaAmedasProvider` は、気象庁Webサイトが参照する地点別JS
 
 | 層 | 役割 |
 | --- | --- |
-| Vercel | Next.js 16のWeb/PWA配信。Server/Client境界を分け、`cookies()`、`params`、`searchParams`などのasync APIをサーバー側で扱う |
+| Vercel | Next.js 16のWeb/PWA配信。FunctionsはSupabase東京リージョンに近い`hnd1`へ固定し、Server/Client境界を分けて`cookies()`、`params`、`searchParams`などのasync APIをサーバー側で扱う |
 | Supabase Auth | メール・Google認証、SSRセッション、認証ユーザーの識別 |
 | Supabase PostgreSQL + PostGIS | 圃場、作付け、品種、地域ルール、日別気象、筆候補の保存。RLSとRPCで所有者境界を強制 |
 | Supabase Edge Function | `update-weather`によるJMA取得、日別値のUPSERT、作付けサマリー再計算 |
