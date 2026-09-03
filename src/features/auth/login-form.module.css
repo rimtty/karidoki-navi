@@ -163,3 +163,35 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+@media (min-width: 900px) {
+  .formRoot {
+    gap: 17px;
+  }
+
+  .modeButton,
+  .modeButtonActive {
+    min-height: 50px;
+    font-size: 0.82rem;
+  }
+
+  .googleButton,
+  .submitButton {
+    min-height: 54px;
+    font-size: 0.84rem;
+  }
+
+  .field {
+    font-size: 0.8rem;
+  }
+
+  .input {
+    min-height: 54px;
+    padding-inline: 14px;
+    font-size: 0.88rem;
+  }
+
+  .forgotLink {
+    font-size: 0.78rem;
+  }
+}

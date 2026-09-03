@@ -69,6 +69,13 @@
   background: #fff9e2;
 }
 
+.settingsLayout,
+.settingsSidebar {
+  display: grid;
+  align-content: start;
+  gap: 20px;
+}
+
 .noticeIcon {
   display: grid;
   width: 32px;
@@ -654,5 +661,76 @@ button:disabled {
 
   .ruleTemperatures strong {
     font-size: 1.35rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .screen {
+    max-width: 1280px;
+    gap: 24px;
+  }
+
+  .pageHeader {
+    align-items: center;
+  }
+
+  .pageHeader h1 {
+    font-size: 2.6rem;
+  }
+
+  .settingsLayout {
+    grid-template-columns: minmax(280px, 330px) minmax(0, 1fr);
+    align-items: start;
+    gap: 26px;
+  }
+
+  .settingsSidebar {
+    position: sticky;
+    top: 108px;
+  }
+
+  .notice,
+  .addVarietyPanel {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .addVarietyRow {
+    grid-template-columns: 1fr;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .card {
+    height: fit-content;
+    padding: 18px;
+  }
+
+  .editingCard {
+    grid-column: 1 / -1;
+  }
+
+  .form {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+    gap: 20px 24px;
+  }
+
+  .formHeading,
+  .temperatureFields,
+  .referenceNote,
+  .formActions,
+  .formError {
+    grid-column: 1 / -1;
+  }
+
+  .form > .field {
+    grid-column: 1;
+  }
+
+  .automaticSettings {
+    grid-column: 2;
   }
 }

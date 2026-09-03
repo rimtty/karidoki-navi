@@ -32,3 +32,29 @@
 .primaryAction:disabled { color: #758172; background: #dce3d8; box-shadow: none; cursor: not-allowed; }
 .footerNote { color: #6d796a; font-size: .76rem; text-align: center; }
 @media (max-width: 480px) { .dateFields { grid-template-columns: 1fr; } .form { padding: 18px 14px; } }
+
+@media (min-width: 960px) {
+  .screen { max-width: 1120px; gap: 22px; }
+  .pageHeader { align-items: center; }
+  .pageHeader h1 { font-size: 2.55rem; }
+  .form {
+    padding: 28px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "name size"
+      "variety dates"
+      "help action";
+    gap: 24px 30px;
+    align-items: stretch;
+  }
+  .nameField { grid-area: name; }
+  .sizeField { grid-area: size; }
+  .varietyField { grid-area: variety; }
+  .dateFields { grid-area: dates; }
+  .helpBox { grid-area: help; min-height: 72px; align-items: center; }
+  .primaryAction { grid-area: action; min-height: 72px; }
+  .inlineWarning { grid-column: 1 / -1; }
+  .field input, .field select { min-height: 58px; }
+  .sizeOptions label { min-height: 86px; }
+  .footerNote { text-align: right; }
+}

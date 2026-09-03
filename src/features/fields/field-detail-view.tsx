@@ -99,36 +99,42 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
       {dataSource === "fixture" && <FixtureNotice compact />}
       {notice && <div className={styles.successNotice} role="status"><span>{notice}</span><button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">×</button></div>}
 
-      <section className={`${styles.statusCard} ${styles[statusMeta.tone]}`}>
-        <span className={styles.statusLabel}>{statusMeta.label}</span>
-        <h2>{summary}</h2>
-        <div className={styles.mainMetric}><span>出穂後の積算気温</span><strong>{formatTemp(field.accumulatedTempC)}</strong></div>
-        {field.referenceDays !== null && status === "soon" && <p className={styles.days}>あと約 {field.referenceDays} 日</p>}
-      </section>
+      <div className={styles.detailGrid}>
+        <div className={styles.primaryColumn}>
+          <section className={`${styles.statusCard} ${styles[statusMeta.tone]}`}>
+            <span className={styles.statusLabel}>{statusMeta.label}</span>
+            <h2>{summary}</h2>
+            <div className={styles.mainMetric}><span>出穂後の積算気温</span><strong>{formatTemp(field.accumulatedTempC)}</strong></div>
+            {field.referenceDays !== null && status === "soon" && <p className={styles.days}>あと約 {field.referenceDays} 日</p>}
+          </section>
 
-      <QualityNotice quality={field.dataQuality} observedThrough={field.observedThrough} missingDays={field.missingDays} compact />
+          <QualityNotice quality={field.dataQuality} observedThrough={field.observedThrough} missingDays={field.missingDays} compact />
+        </div>
 
-      <section className={styles.infoPanel}>
-        <h2>登録内容</h2>
-        <dl>
-          <div><dt>田んぼの大きさ</dt><dd>{sizeLabels[field.sizeClass]}</dd></div>
-          <div><dt>品種</dt><dd>{field.variety ?? "未設定"}</dd></div>
-          <div><dt>田植え日</dt><dd>{formatDate(field.plantingDate)}</dd></div>
-          <div><dt>出穂日</dt><dd>{formatDate(field.headingDate)}</dd></div>
-          <div><dt>気温の反映</dt><dd>{formatDate(field.observedThrough)}まで</dd></div>
-        </dl>
-      </section>
+        <div className={styles.secondaryColumn}>
+          <section className={styles.infoPanel}>
+            <h2>登録内容</h2>
+            <dl>
+              <div><dt>田んぼの大きさ</dt><dd>{sizeLabels[field.sizeClass]}</dd></div>
+              <div><dt>品種</dt><dd>{field.variety ?? "未設定"}</dd></div>
+              <div><dt>田植え日</dt><dd>{formatDate(field.plantingDate)}</dd></div>
+              <div><dt>出穂日</dt><dd>{formatDate(field.headingDate)}</dd></div>
+              <div><dt>気温の反映</dt><dd>{formatDate(field.observedThrough)}まで</dd></div>
+            </dl>
+          </section>
 
-      {status === "not-configured" && (
-        <aside className={styles.settingNotice}>
-          <div><strong>刈りどきの基準が未設定です</strong><p>品種に合わせた積算気温の基準を設定してください。</p></div>
-          <Link href="/app/settings/variety-rules">設定を見る</Link>
-        </aside>
-      )}
+          {status === "not-configured" && (
+            <aside className={styles.settingNotice}>
+              <div><strong>刈りどきの基準が未設定です</strong><p>品種に合わせた積算気温の基準を設定してください。</p></div>
+              <Link href="/app/settings/variety-rules">設定を見る</Link>
+            </aside>
+          )}
 
-      <button ref={harvestButtonRef} className={styles.harvestButton} type="button" onClick={() => setShowHarvest(true)} disabled={harvested}>
-        {harvested ? "収穫を記録済み" : "この田んぼの収穫を記録"}
-      </button>
+          <button ref={harvestButtonRef} className={styles.harvestButton} type="button" onClick={() => setShowHarvest(true)} disabled={harvested}>
+            {harvested ? "収穫を記録済み" : "この田んぼの収穫を記録"}
+          </button>
+        </div>
+      </div>
 
       {showHarvest && (
         <div className={styles.dialogBackdrop}>
