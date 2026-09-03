@@ -205,3 +205,96 @@
     box-shadow: 0 0 40px rgba(48, 72, 43, 0.07);
   }
 }
+
+@media (min-width: 960px) {
+  .shell {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr);
+    grid-template-rows: 76px minmax(calc(100svh - 76px), 1fr);
+    background: #edf2e9;
+  }
+
+  .header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    height: 76px;
+    padding: 0 32px;
+    border-bottom-color: rgba(49, 92, 43, 0.16);
+    box-shadow: 0 8px 26px rgba(48, 72, 43, 0.06);
+  }
+
+  .brand {
+    gap: 12px;
+    font-size: 1.02rem;
+  }
+
+  .brandMark {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  .content {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    min-width: 0;
+    min-height: calc(100svh - 76px);
+    margin: 0;
+    padding: 32px clamp(28px, 4vw, 64px) 48px;
+  }
+
+  .bottomNav {
+    position: sticky;
+    top: 76px;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    height: calc(100svh - 76px);
+    min-height: 0;
+    margin: 0;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-self: start;
+    border-top: 0;
+    border-right: 1px solid rgba(49, 92, 43, 0.14);
+    background: rgba(248, 250, 245, 0.9);
+    box-shadow: none;
+  }
+
+  .navItem {
+    min-height: 54px;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    place-content: initial;
+    align-items: center;
+    gap: 10px;
+    border-radius: 13px;
+    font-size: 0.86rem;
+    text-align: left;
+  }
+
+  .navGlyph {
+    min-height: 0;
+    font-size: 1.28rem;
+    text-align: center;
+  }
+
+  .accountPanel {
+    min-width: 260px;
+    padding: 16px;
+  }
+
+  .accountPanel p,
+  .accountPanel strong,
+  .accountPanel button {
+    font-size: 0.8rem;
+  }
+}

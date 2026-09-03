@@ -147,45 +147,50 @@ export function HomeMapView({
       {dataError && <DataLoadError message={dataError} />}
       {dataSource === "fixture" && <FixtureNotice compact />}
 
-      <section className={styles.todaySummary} aria-label="今日の刈りどき状況">
-        <div>
-          <span>今が刈りどき</span>
-          <strong>{readyCount}<small>件</small></strong>
-        </div>
-        <p>{readyCount > 0 ? "上から順に田んぼを確認しましょう。" : "今日は刈りどきの田んぼはありません。"}</p>
-      </section>
+      <div className={styles.dashboard}>
+        <aside className={styles.overviewPanel} aria-label="田んぼの絞り込み">
+          <section className={styles.todaySummary} aria-label="今日の刈りどき状況">
+            <div>
+              <span>今が刈りどき</span>
+              <strong>{readyCount}<small>件</small></strong>
+            </div>
+            <p>{readyCount > 0 ? "上から順に田んぼを確認しましょう。" : "今日は刈りどきの田んぼはありません。"}</p>
+          </section>
 
-      <div className={styles.filters} role="group" aria-label="田んぼの表示を切り替える">
-        {([
-          ["all", "すべて", initialFields.length],
-          ["attention", "要確認", attentionCount],
-          ["growing", "刈りどき前", initialFields.filter((field) => field.status === "growing").length],
-          ["harvested", "収穫済", initialFields.filter((field) => field.status === "harvested").length],
-        ] as const).map(([value, label, count]) => (
-          <button key={value} type="button" aria-pressed={filter === value}
-            className={filter === value ? styles.filterActive : ""} onClick={() => setFilter(value)}>
-            <span>{label}</span><strong>{count}</strong>
-          </button>
-        ))}
+          <div className={styles.filters} role="group" aria-label="田んぼの表示を切り替える">
+            {([
+              ["all", "すべて", initialFields.length],
+              ["attention", "要確認", attentionCount],
+              ["growing", "刈りどき前", initialFields.filter((field) => field.status === "growing").length],
+              ["harvested", "収穫済", initialFields.filter((field) => field.status === "harvested").length],
+            ] as const).map(([value, label, count]) => (
+              <button key={value} type="button" aria-pressed={filter === value}
+                className={filter === value ? styles.filterActive : ""} onClick={() => setFilter(value)}>
+                <span>{label}</span><strong>{count}</strong>
+              </button>
+            ))}
+          </div>
+          <p className={styles.overviewHint}>色と文字で状態を確認できます。気になる田んぼを押すと詳しい情報を表示します。</p>
+        </aside>
+
+        <section className={styles.fieldList} aria-label="田んぼ一覧">
+          <div className={styles.listHeading}>
+            <h2>刈る順に表示</h2>
+            <span>{fields.length}件</span>
+          </div>
+          {fields.length > 0 ? (
+            <div className={styles.fieldGrid}>
+              {fields.map((field) => <FieldCard field={field} key={field.id} />)}
+            </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <span aria-hidden="true">🌾</span>
+              <strong>表示する田んぼがありません</strong>
+              <p>「登録」から田んぼを追加できます。</p>
+            </div>
+          )}
+        </section>
       </div>
-
-      <section className={styles.fieldList} aria-label="田んぼ一覧">
-        <div className={styles.listHeading}>
-          <h2>刈る順に表示</h2>
-          <span>{fields.length}件</span>
-        </div>
-        {fields.length > 0 ? (
-          <div className={styles.fieldGrid}>
-            {fields.map((field) => <FieldCard field={field} key={field.id} />)}
-          </div>
-        ) : (
-          <div className={styles.emptyState}>
-            <span aria-hidden="true">🌾</span>
-            <strong>表示する田んぼがありません</strong>
-            <p>「登録」から田んぼを追加できます。</p>
-          </div>
-        )}
-      </section>
 
       <p className={styles.disclaimer}>刈りどきは目安です。稲の状態や天候も確認してください。</p>
     </div>

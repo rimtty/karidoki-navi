@@ -168,7 +168,7 @@ export function FieldRegistrationView({
       {dataSource === "fixture" && <FixtureNotice compact />}
 
       <form className={styles.form} onSubmit={saveRegistration}>
-        <label className={styles.field} htmlFor="field-name">
+        <label className={`${styles.field} ${styles.nameField}`} htmlFor="field-name">
           <span>田んぼの名前 <em>必須</em></span>
           <input id="field-name" type="text" value={draft.fieldName}
             onChange={(event) => setDraft((current) => ({ ...current, fieldName: event.target.value }))}
@@ -189,7 +189,7 @@ export function FieldRegistrationView({
           </div>
         </fieldset>
 
-        <label className={styles.field} htmlFor="field-variety">
+        <label className={`${styles.field} ${styles.varietyField}`} htmlFor="field-variety">
           <span>品種 <em>必須</em></span>
           <select id="field-variety" value={draft.varietyId}
             onChange={(event) => setDraft((current) => ({ ...current, varietyId: event.target.value }))} required>

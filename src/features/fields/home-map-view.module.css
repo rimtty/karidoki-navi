@@ -5,6 +5,12 @@
   gap: 18px;
 }
 
+.dashboard,
+.overviewPanel {
+  display: grid;
+  gap: 18px;
+}
+
 .pageHeader {
   display: flex;
   align-items: flex-start;
@@ -126,6 +132,14 @@
   border: 2px solid #497344;
   color: #254722;
   background: #eaf2e6;
+}
+
+.overviewHint {
+  display: none;
+  color: #667462;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .fieldList {
@@ -389,5 +403,130 @@
 
   .sizeLarge {
     min-height: 235px;
+  }
+}
+
+@media (min-width: 960px) {
+  .screen {
+    max-width: 1280px;
+    gap: 24px;
+  }
+
+  .pageHeader {
+    align-items: center;
+  }
+
+  .pageHeader p {
+    font-size: 0.82rem;
+  }
+
+  .pageHeader h1 {
+    font-size: 2.5rem;
+  }
+
+  .pageHeader > div > span {
+    font-size: 0.9rem;
+  }
+
+  .addButton {
+    min-width: 112px;
+    min-height: 50px;
+    border-radius: 13px;
+    font-size: 0.86rem;
+  }
+
+  .dashboard {
+    grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  .overviewPanel {
+    position: sticky;
+    top: 108px;
+    gap: 14px;
+  }
+
+  .todaySummary {
+    padding: 20px;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    border-radius: 18px;
+  }
+
+  .todaySummary strong {
+    font-size: 3rem;
+  }
+
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters button {
+    min-height: 68px;
+  }
+
+  .overviewHint {
+    display: block;
+    padding: 14px;
+    border: 1px solid #d4ddd0;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.58);
+  }
+
+  .fieldList {
+    gap: 14px;
+  }
+
+  .listHeading h2 {
+    font-size: 1.12rem;
+  }
+
+  .fieldGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .fieldCard,
+  .sizeSmall,
+  .sizeMedium,
+  .sizeLarge {
+    width: 100%;
+    min-height: 220px;
+    grid-column: auto;
+    justify-self: stretch;
+  }
+
+  .fieldCard:nth-child(even).sizeSmall {
+    justify-self: stretch;
+  }
+
+  .cardMain h2 {
+    font-size: 1.32rem;
+  }
+
+  .progress {
+    font-size: 1.62rem;
+  }
+
+  .ready .progress,
+  .overdue .progress {
+    font-size: 1.3rem;
+  }
+
+  .disclaimer {
+    text-align: right;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dashboard {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 30px;
+  }
+
+  .fieldGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

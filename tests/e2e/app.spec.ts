@@ -149,7 +149,7 @@ test("使い方を3段階で案内し、設定と登録へ移動できる", asyn
   await expect(page.getByRole("heading", { name: "使い方" })).toBeVisible();
   await expect(page.getByText("最初に「刈りどきの目安」を設定してください")).toBeVisible();
   await expect(page.getByRole("heading", { name: "品種ごとに、刈りどきを決める" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "刈りどきの目安を設定する" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "刈りどきの目安を設定する" }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "次へ" }).click();
   await expect(page.getByRole("heading", { name: "田んぼの名前と日付を入れる" })).toBeVisible();
@@ -157,8 +157,47 @@ test("使い方を3段階で案内し、設定と登録へ移動できる", asyn
 
   await page.getByRole("button", { name: "次へ" }).click();
   await expect(page.getByRole("heading", { name: "あとは色を見て、刈る順番を確認" })).toBeVisible();
-  await expect(page.getByText("刈りどき", { exact: true })).toBeVisible();
+  await expect(page.getByText("刈りどき", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("link", { name: "今日の田んぼを見る" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "登録すると、毎朝この一覧を見るだけ" })).toBeVisible();
+  await expect(page.getByLabel("田んぼ一覧の色分け表示例")).toContainText("刈り遅れ");
+  await expect(page.getByLabel("田んぼ一覧の色分け表示例")).toContainText("収穫済");
+});
+
+test("PCブラウザでは横幅を使って情報を見比べられる", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await login(page);
+
+  const navigationBox = await page.locator("nav").boundingBox();
+  const mainBox = await page.locator("main").boundingBox();
+  expect(navigationBox?.width ?? 0).toBeGreaterThanOrEqual(200);
+  expect(mainBox?.width ?? 0).toBeGreaterThanOrEqual(1000);
+  expect(navigationBox?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(mainBox?.x ?? 0);
+
+  await page.goto("/app/fields/new/1");
+  const formBox = await page.locator("form").boundingBox();
+  const nameBox = await page.getByLabel(/田んぼの名前/).boundingBox();
+  const sizeBox = await page
+    .locator("fieldset")
+    .filter({ hasText: "田んぼの大きさ" })
+    .boundingBox();
+  expect(formBox?.width ?? 0).toBeGreaterThanOrEqual(900);
+  expect(nameBox?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(sizeBox?.x ?? 0);
+  expect(Math.abs((nameBox?.y ?? 0) - (sizeBox?.y ?? 0))).toBeLessThan(80);
+
+  await page.goto("/app/guide");
+  const stepTabsBox = await page.locator('ol[aria-label="使い方の3段階"]').boundingBox();
+  const stepCardBox = await page.locator('section[aria-live="polite"]').boundingBox();
+  expect(stepTabsBox?.width ?? 0).toBeGreaterThanOrEqual(200);
+  expect(stepTabsBox?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(stepCardBox?.x ?? 0);
+
+  await page.goto("/app/settings/variety-rules");
+  const noticeBox = await page.getByRole("note").boundingBox();
+  const varietyCard = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "コシヒカリ" }) });
+  const varietyCardBox = await varietyCard.boundingBox();
+  expect(noticeBox?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(varietyCardBox?.x ?? 0);
 });
 
 test("PWA の manifest・Service Worker・オフライン表示を確認する", async ({ page, context }) => {

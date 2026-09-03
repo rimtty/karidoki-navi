@@ -384,62 +384,6 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
       {initialData.error && <DataLoadError message={initialData.error} />}
       {initialData.source === "fixture" && <FixtureNotice compact />}
 
-      <div className={styles.notice} role="note">
-        <span className={styles.noticeIcon} aria-hidden="true">!</span>
-        <div>
-          <strong>数字が分からないときは、入力しなくて大丈夫です</strong>
-          <p>
-            三原市久井町で使える公的な数字は、まだ確認できていません。ほかの地域の数字を推測で入れず、作業ノートやJAなどの資料がある場合だけ登録してください。
-          </p>
-        </div>
-      </div>
-
-      <section className={styles.addVarietyPanel} aria-labelledby="add-variety-title">
-        <div>
-          <p className={styles.addVarietyEyebrow}>一覧にない品種</p>
-          <h2 id="add-variety-title">品種を追加</h2>
-          <p>作っているお米が一覧にないときだけ、品種名を追加してください。</p>
-        </div>
-        <div className={styles.addVarietyControls}>
-          <label htmlFor="new-variety-name">追加する品種名</label>
-          <div className={styles.addVarietyRow}>
-            <input
-              id="new-variety-name"
-              type="text"
-              maxLength={30}
-              autoComplete="off"
-              placeholder="例：にこまる"
-              value={newVarietyName}
-              onChange={(event) => {
-                setNewVarietyName(event.target.value);
-                setVarietyError(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  void addVariety();
-                }
-              }}
-              aria-invalid={Boolean(varietyError)}
-              aria-describedby={varietyError ? "new-variety-error" : undefined}
-              disabled={pendingVariety || initialData.source === "fixture"}
-            />
-            <button
-              type="button"
-              onClick={() => void addVariety()}
-              disabled={pendingVariety || initialData.source === "fixture"}
-            >
-              {pendingVariety ? "追加しています…" : "この品種を追加"}
-            </button>
-          </div>
-          {varietyError && (
-            <p className={styles.error} id="new-variety-error" role="alert">
-              {varietyError}
-            </p>
-          )}
-        </div>
-      </section>
-
       {feedback && (
         <p
           className={`${styles.feedback} ${feedbackError ? styles.feedbackError : ""}`}
@@ -449,12 +393,75 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
         </p>
       )}
 
-      <div className={styles.cards}>
-        {cards.map((card) => {
-          const isEditing = editing?.cardId === card.id;
-          const hasRule = card.customRules.length > 0;
-          return (
-            <section className={styles.card} key={card.id} aria-labelledby={`variety-${card.id}`}>
+      <div className={styles.settingsLayout}>
+        <aside className={styles.settingsSidebar}>
+          <div className={styles.notice} role="note">
+            <span className={styles.noticeIcon} aria-hidden="true">!</span>
+            <div>
+              <strong>数字が分からないときは、入力しなくて大丈夫です</strong>
+              <p>
+                三原市久井町で使える公的な数字は、まだ確認できていません。ほかの地域の数字を推測で入れず、作業ノートやJAなどの資料がある場合だけ登録してください。
+              </p>
+            </div>
+          </div>
+
+          <section className={styles.addVarietyPanel} aria-labelledby="add-variety-title">
+            <div>
+              <p className={styles.addVarietyEyebrow}>一覧にない品種</p>
+              <h2 id="add-variety-title">品種を追加</h2>
+              <p>作っているお米が一覧にないときだけ、品種名を追加してください。</p>
+            </div>
+            <div className={styles.addVarietyControls}>
+              <label htmlFor="new-variety-name">追加する品種名</label>
+              <div className={styles.addVarietyRow}>
+                <input
+                  id="new-variety-name"
+                  type="text"
+                  maxLength={30}
+                  autoComplete="off"
+                  placeholder="例：にこまる"
+                  value={newVarietyName}
+                  onChange={(event) => {
+                    setNewVarietyName(event.target.value);
+                    setVarietyError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void addVariety();
+                    }
+                  }}
+                  aria-invalid={Boolean(varietyError)}
+                  aria-describedby={varietyError ? "new-variety-error" : undefined}
+                  disabled={pendingVariety || initialData.source === "fixture"}
+                />
+                <button
+                  type="button"
+                  onClick={() => void addVariety()}
+                  disabled={pendingVariety || initialData.source === "fixture"}
+                >
+                  {pendingVariety ? "追加しています…" : "この品種を追加"}
+                </button>
+              </div>
+              {varietyError && (
+                <p className={styles.error} id="new-variety-error" role="alert">
+                  {varietyError}
+                </p>
+              )}
+            </div>
+          </section>
+        </aside>
+
+        <div className={styles.cards}>
+          {cards.map((card) => {
+            const isEditing = editing?.cardId === card.id;
+            const hasRule = card.customRules.length > 0;
+            return (
+              <section
+                className={`${styles.card} ${isEditing ? styles.editingCard : ""}`}
+                key={card.id}
+                aria-labelledby={`variety-${card.id}`}
+              >
               <div className={styles.cardHeader}>
                 <div>
                   <h2 id={`variety-${card.id}`}>{card.name}</h2>
@@ -532,9 +539,10 @@ export function VarietyRulesView({ initialData }: { initialData: VarietyRuleSett
                   onSubmit={submitRule}
                 />
               )}
-            </section>
-          );
-        })}
+              </section>
+            );
+          })}
+        </div>
       </div>
 
       {initialData.source === "fixture" && (
