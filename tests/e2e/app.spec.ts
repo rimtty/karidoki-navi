@@ -82,8 +82,13 @@ test("PWA の manifest・Service Worker・オフライン表示を確認する",
 
 test("メールログインから圃場登録・一覧・詳細・収穫・ログアウトまで通る", async ({ page }) => {
   await blockRemoteMapAssets(page);
+  const mapWorkers: string[] = [];
+  page.on("worker", (worker) => mapWorkers.push(worker.url()));
   await login(page);
   await expect(page.getByRole("heading", { name: "今日の刈りどき" })).toBeVisible();
+  await expect
+    .poll(() => mapWorkers.some((url) => url.endsWith("/maplibre-gl-worker.mjs")))
+    .toBe(true);
   await expect(page.getByText("開発用フィクスチャを表示中")).toHaveCount(0);
 
   await page.getByRole("link", { name: "一覧", exact: true }).click();
