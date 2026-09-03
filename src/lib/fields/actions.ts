@@ -7,24 +7,16 @@ import {
   SUPABASE_CONFIG_ERROR,
 } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
-import type {
-  Coordinate,
-  ParcelGeometry,
-} from "@/features/fields/view-model";
-import type { Json } from "@/lib/supabase/database.types";
+import type { FieldSizeClass } from "@/features/fields/view-model";
 
 export type RegistrationInput = {
   idempotencyKey: string;
   fieldName: string;
-  polygon: Coordinate[];
-  /** Selected MAFF candidates are MultiPolygon; manual drawings use polygon. */
-  geometry?: ParcelGeometry | null;
+  sizeClass: FieldSizeClass;
   year: number;
   varietyId: string;
-  headingDate: string | null;
-  parcelSource: "MAFF_PARCEL" | "MANUAL";
-  parcelExternalId: string | null;
-  parcelDatasetVersion: string | null;
+  plantingDate: string;
+  headingDate: string;
 };
 
 export type RegistrationActionResult =
@@ -33,7 +25,7 @@ export type RegistrationActionResult =
       source: "supabase" | "fixture";
       fieldId: string;
       cropSeasonId: string;
-      areaM2: number;
+      sizeClass: FieldSizeClass;
       wasReplayed: boolean;
     }
   | { ok: false; source: "supabase" | "fixture"; message: string };
@@ -43,7 +35,7 @@ export type HarvestActionResult =
   | { ok: false; source: "supabase" | "fixture"; message: string };
 
 const REGISTRATION_ERROR =
-  "圃場を登録できませんでした。入力内容を確認して再試行してください。";
+  "田んぼを登録できませんでした。入力内容を確認して再試行してください。";
 const REGISTRATION_AUTH_ERROR =
   "ログイン状態を確認できませんでした。ログインし直して再試行してください。";
 const HARVEST_ERROR =
@@ -55,61 +47,6 @@ function isDevelopmentFallbackAllowed(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-function validCoordinate(value: unknown): value is Coordinate {
-  return (
-    Array.isArray(value) &&
-    value.length === 2 &&
-    typeof value[0] === "number" &&
-    Number.isFinite(value[0]) &&
-    value[0] >= -180 &&
-    value[0] <= 180 &&
-    typeof value[1] === "number" &&
-    Number.isFinite(value[1]) &&
-    value[1] >= -90 &&
-    value[1] <= 90
-  );
-}
-
-function normalizePolygon(polygon: unknown): Coordinate[] | null {
-  if (!Array.isArray(polygon)) return null;
-  const points = polygon.filter(validCoordinate);
-  if (points.length !== polygon.length || points.length < 3) return null;
-  const normalized = points.map(([lng, lat]) => [lng, lat] as Coordinate);
-  const first = normalized[0];
-  const last = normalized[normalized.length - 1];
-  if (first[0] === last[0] && first[1] === last[1]) normalized.pop();
-  return normalized.length >= 3 ? normalized : null;
-}
-
-function normalizeParcelGeometry(value: unknown): ParcelGeometry | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const geometry = value as { type?: unknown; coordinates?: unknown };
-  const polygons =
-    geometry.type === "Polygon"
-      ? [geometry.coordinates]
-      : geometry.type === "MultiPolygon"
-        ? geometry.coordinates
-        : null;
-  if (!Array.isArray(polygons) || polygons.length === 0) return null;
-
-  const normalizedPolygons: Coordinate[][][] = [];
-  for (const polygon of polygons) {
-    if (!Array.isArray(polygon) || polygon.length === 0) return null;
-    const normalizedRings: Coordinate[][] = [];
-    for (const ring of polygon) {
-      const normalizedRing = normalizePolygon(ring);
-      if (!normalizedRing) return null;
-      normalizedRings.push([...normalizedRing, normalizedRing[0]]);
-    }
-    normalizedPolygons.push(normalizedRings);
-  }
-
-  return {
-    type: "MultiPolygon",
-    coordinates: normalizedPolygons,
-  };
-}
-
 function validText(value: unknown, max: number): value is string {
   return typeof value === "string" && value.trim().length >= 1 && value.trim().length <= max;
 }
@@ -118,16 +55,13 @@ function fallbackRegistration(input: RegistrationInput): RegistrationActionResul
   // There is no persistence in fixture mode. Returning a known fixture ID
   // keeps the existing development flow navigable while the DEV notice makes
   // the non-production nature explicit.
-  const fieldId =
-    input.parcelExternalId && input.parcelExternalId.startsWith("field-")
-      ? input.parcelExternalId
-      : FIELD_FIXTURES[0]?.id ?? "field-fixture";
+  const fieldId = FIELD_FIXTURES[0]?.id ?? "field-fixture";
   return {
     ok: true,
     source: "fixture",
     fieldId,
     cropSeasonId: `fixture-season-${fieldId}`,
-    areaM2: 0,
+    sizeClass: input.sizeClass,
     wasReplayed: false,
   };
 }
@@ -141,22 +75,17 @@ export async function registerFieldWithSeasonAction(
   if (!input || typeof input !== "object") {
     return { ok: false, source, message: REGISTRATION_ERROR };
   }
-  const polygon = normalizePolygon(input.polygon);
-  const hasParcelGeometry = input.geometry !== null && input.geometry !== undefined;
-  const parcelGeometry = normalizeParcelGeometry(input.geometry);
   if (
     !validText(input.idempotencyKey, 200) ||
     !validText(input.fieldName, 100) ||
-    (!polygon && !parcelGeometry) ||
-    (hasParcelGeometry && !parcelGeometry) ||
+    !(["small", "medium", "large"] as const).includes(input.sizeClass) ||
     !Number.isInteger(input.year) ||
     input.year < 2000 ||
     input.year > 2100 ||
     !validText(input.varietyId, 200) ||
-    (input.headingDate !== null && !isLocalDate(input.headingDate)) ||
-    (input.parcelSource !== "MAFF_PARCEL" && input.parcelSource !== "MANUAL") ||
-    (parcelGeometry && input.parcelSource !== "MAFF_PARCEL") ||
-    (!parcelGeometry && input.parcelSource !== "MANUAL")
+    !isLocalDate(input.plantingDate) ||
+    !isLocalDate(input.headingDate) ||
+    input.headingDate < input.plantingDate
   ) {
     return {
       ok: false,
@@ -178,37 +107,27 @@ export async function registerFieldWithSeasonAction(
       return { ok: false, source: "supabase", message: REGISTRATION_AUTH_ERROR };
     }
 
-    const geometryPayload = parcelGeometry ?? {
-      type: "Polygon" as const,
-      coordinates: [[...(polygon as Coordinate[]), (polygon as Coordinate[])[0]]],
-    };
-    const { data, error } = await supabase.rpc("register_field_with_season", {
+    const databaseSize = input.sizeClass.toUpperCase() as "SMALL" | "MEDIUM" | "LARGE";
+    const { data, error } = await supabase.rpc("register_simple_field_with_season", {
       p_idempotency_key: input.idempotencyKey.trim(),
       p_field_name: input.fieldName.trim(),
-      p_geom_geojson: geometryPayload as unknown as Json,
+      p_size_class: databaseSize,
       p_year: input.year,
       p_variety_id: input.varietyId,
+      p_planting_date: input.plantingDate,
       p_heading_date: input.headingDate,
-      p_parcel_source: input.parcelSource,
-      p_parcel_external_id: input.parcelExternalId,
-      p_parcel_dataset_version: input.parcelDatasetVersion,
     });
     if (error || !data?.[0]) {
       if (isDevelopmentFallbackAllowed()) return fallbackRegistration(input);
       return { ok: false, source: "supabase", message: REGISTRATION_ERROR };
     }
     const row = data[0];
-    const areaM2 = Number(row.area_m2);
-    if (!Number.isFinite(areaM2) || areaM2 <= 0) {
-      if (isDevelopmentFallbackAllowed()) return fallbackRegistration(input);
-      return { ok: false, source: "supabase", message: REGISTRATION_ERROR };
-    }
     return {
       ok: true,
       source: "supabase",
       fieldId: row.field_id,
       cropSeasonId: row.crop_season_id,
-      areaM2,
+      sizeClass: row.size_class.toLowerCase() as FieldSizeClass,
       wasReplayed: row.was_replayed,
     };
   } catch {

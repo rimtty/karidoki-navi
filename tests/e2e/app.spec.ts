@@ -1,5 +1,6 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
+const PLANTING_DATE = "2026-05-20";
 const HEADING_DATE = "2026-08-01";
 const HARVEST_DATE = "2026-09-03";
 
@@ -15,13 +16,6 @@ async function login(page: Page) {
   await page.getByLabel("パスワード").fill(password);
   await page.getByRole("button", { name: "メールアドレスでログイン" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);
-}
-
-async function blockRemoteMapAssets(page: Page) {
-  // The field flow only needs map interaction; public map assets are not part
-  // of the assertion and can be unavailable in an offline CI runner.
-  await page.route("https://cyberjapandata.gsi.go.jp/**", (route: Route) => route.abort());
-  await page.route("https://demotiles.maplibre.org/**", (route: Route) => route.abort());
 }
 
 type MailpitSummary = {
@@ -79,12 +73,12 @@ async function recoveryLinkFromMailpit(email: string): Promise<string> {
   return match[0].replaceAll("&amp;", "&");
 }
 
-test("ランディングからMVP版のログイン導線を表示する", async ({ page }) => {
+test("ランディングから試用版のログイン導線を表示する", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByText("MVP版", { exact: true })).toBeVisible();
-  await expect(page.getByText("MVP版を公開中です。", { exact: true })).toBeVisible();
+  await expect(page.getByText("試用版", { exact: true })).toBeVisible();
+  await expect(page.getByText("試用版を公開中です。", { exact: true })).toBeVisible();
 
   const loginLink = page.getByRole("link", {
     name: "ログインして使う",
@@ -167,89 +161,57 @@ test("PWA の manifest・Service Worker・オフライン表示を確認する",
   await context.setOffline(true);
   await expect(page.getByText("オフライン：保存済みの画面を表示中")).toBeVisible();
   await context.setOffline(false);
-  await expect(page.getByText("オンライン")).toBeVisible();
+  await expect(page.getByText("オフライン：保存済みの画面を表示中")).toHaveCount(0);
 });
 
-test("メールログインから圃場登録・一覧・詳細・収穫・ログアウトまで通る", async ({ page }) => {
-  await blockRemoteMapAssets(page);
-  const mapWorkers: string[] = [];
-  page.on("worker", (worker) => mapWorkers.push(worker.url()));
+test("メールログインから田んぼ登録・詳細・収穫・ログアウトまで通る", async ({ page }) => {
   await login(page);
-  await expect(page.getByRole("heading", { name: "今日の刈りどき" })).toBeVisible();
-  await expect
-    .poll(() => mapWorkers.some((url) => url.endsWith("/maplibre-gl-worker.mjs")))
-    .toBe(true);
-  await expect(page.getByText("開発用フィクスチャを表示中")).toHaveCount(0);
-
-  await page.getByRole("link", { name: "一覧", exact: true }).click();
-  await expect(page).toHaveURL(/\/app\/fields$/);
-  await expect(page.getByRole("heading", { name: "田んぼ一覧" })).toBeVisible();
-  await expect(page.getByText("開発用フィクスチャを表示中")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "今日の田んぼ" })).toBeVisible();
+  await expect(page.getByText("開発用の見本を表示中です")).toHaveCount(0);
+  await expect(page.getByRole("application")).toHaveCount(0);
 
   await page.getByRole("link", { name: /登録/ }).first().click();
   await expect(page).toHaveURL(/\/app\/fields\/new\/1$/);
-  await expect(page.getByRole("heading", { name: "区画を選ぶ" })).toBeVisible();
-  await page.getByRole("button", { name: "手描きする" }).click();
-
-  const map = page.getByRole("application", {
-    name: "手描き用の地図。タップして点を追加できます。",
-  });
-  await expect(map).toBeVisible();
-  await expect(page.getByText("地図をタップして点を追加")).toBeVisible();
-  const box = await map.boundingBox();
-  if (!box) throw new Error("手描き地図の表示領域を取得できませんでした。");
-  for (const [x, y] of [
-    [0.27, 0.34],
-    [0.73, 0.34],
-    [0.62, 0.68],
-  ]) {
-    await page.mouse.click(box.x + box.width * x, box.y + box.height * y);
-  }
-  await expect(page.getByText("区画を囲めます")).toBeVisible();
-  await expect(page.getByRole("button", { name: /作付け入力へ/ })).toBeEnabled();
-  await page.getByRole("button", { name: /作付け入力へ/ }).click();
-
-  await expect(page).toHaveURL(/\/app\/fields\/new\/2$/);
-  await page.getByLabel(/圃場名/).fill("E2E久井テスト圃場");
+  await expect(page.getByRole("heading", { name: "田んぼを登録" })).toBeVisible();
+  await expect(page.getByRole("application")).toHaveCount(0);
+  await page.getByLabel(/田んぼの名前/).fill("E2E久井テスト田んぼ");
+  await page.locator("label").filter({ hasText: "大きめ" }).click();
+  await expect(page.locator('input[name="size-class"][value="large"]')).toBeChecked();
   const varietySelect = page.getByLabel("品種");
   await expect(varietySelect.locator("option")).toHaveCount(6);
   const varietyNames = await varietySelect.locator("option").allTextContents();
-  expect(varietyNames[0]).toBe("品種を選択してください");
+  expect(varietyNames[0]).toBe("品種を選んでください");
   expect(varietyNames.slice(1).sort()).toEqual(
     ["あきさかり", "あきろまん", "コシヒカリ", "ヒノヒカリ", "恋の予感"].sort(),
   );
   await varietySelect.selectOption({ label: "コシヒカリ" });
+  await page.getByLabel(/田植え日/).fill(PLANTING_DATE);
   await page.getByLabel(/出穂日/).fill(HEADING_DATE);
-  await page.getByRole("button", { name: /確認へ/ }).click();
-
-  await expect(page).toHaveURL(/\/app\/fields\/new\/3$/);
-  await expect(page.getByRole("heading", { name: "内容を確認" })).toBeVisible();
-  await expect(page.getByText("E2E久井テスト圃場")).toBeVisible();
-  await page.getByRole("button", { name: /保存して詳細へ/ }).click();
+  await page.getByRole("button", { name: "この内容で登録する" }).click();
   await expect(page).toHaveURL(/\/app\/fields\/[0-9a-f-]+$/);
-  await expect(page.getByRole("heading", { name: "E2E久井テスト圃場" })).toBeVisible();
-  await expect(page.getByText("開発用フィクスチャを表示中")).toHaveCount(0);
-  await expect(page.getByText("公式ルール未設定")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E久井テスト田んぼ" })).toBeVisible();
+  await expect(page.getByText("開発用の見本を表示中です")).toHaveCount(0);
+  await expect(page.getByText("刈りどきの基準が未設定です")).toBeVisible();
+  await expect(page.getByText("大", { exact: true })).toBeVisible();
   await expect(
-    await page.evaluate(() => window.localStorage.getItem("karidoki-navi:field-registration-draft")),
+    await page.evaluate(() => window.localStorage.getItem("karidoki-navi:simple-field-registration")),
   ).toBeNull();
 
-  await page.getByRole("button", { name: "収穫を登録" }).click();
-  const dialog = page.getByRole("dialog", { name: "収穫を登録" });
+  await page.getByRole("button", { name: "この田んぼの収穫を記録" }).click();
+  const dialog = page.getByRole("dialog", { name: "収穫日を記録" });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel("収穫日").fill(HARVEST_DATE);
-  await dialog.getByRole("button", { name: "登録する" }).click();
+  await dialog.getByRole("button", { name: "記録する" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "収穫を記録しました" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "収穫記録済み" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "収穫を記録済み" })).toBeVisible();
 
-  await page.getByRole("link", { name: "刈りどきナビ 地図へ" }).click();
+  await page.getByRole("link", { name: "刈りどきナビ 田んぼ一覧へ" }).click();
   await expect(page).toHaveURL(/\/app$/);
-  await page.getByRole("link", { name: "田んぼ一覧" }).click();
-  await expect(page.getByRole("heading", { name: "E2E久井テスト圃場" })).toBeVisible();
-  await page.getByRole("link", { name: /E2E久井テスト圃場/ }).click();
-  await expect(page.getByText("収穫済", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E久井テスト田んぼ" })).toBeVisible();
+  await page.getByRole("link", { name: /E2E久井テスト田んぼ/ }).click();
+  await expect(page.getByText("この田んぼは収穫済みです。", { exact: true })).toBeVisible();
 
   await page.locator('summary[aria-label="アカウントメニュー"]').click();
   await page.getByRole("button", { name: "ログアウト" }).click();

@@ -201,20 +201,26 @@
 
 .fieldGrid {
   position: relative;
-  height: 330px;
+  height: auto;
   margin-top: 24px;
+  display: grid;
+  gap: 12px;
 }
 
 .field {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  gap: 2px;
+  position: relative;
+  width: 100%;
+  min-height: 78px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 18px;
   color: #173216;
-  text-align: center;
+  text-align: left;
   box-shadow: 0 12px 24px rgba(43, 63, 38, 0.12);
-  transform: rotate(-2deg);
 }
 
 .field strong {
@@ -227,32 +233,15 @@
 }
 
 .growing {
-  top: 30px;
-  left: 4%;
-  width: 44%;
-  height: 118px;
-  border-radius: 28px 16px 24px 14px;
   background: #9dcc79;
 }
 
 .soon {
-  top: 170px;
-  left: 0;
-  width: 39%;
-  height: 104px;
-  border-radius: 16px 24px 14px 30px;
   background: #dfd05b;
-  transform: rotate(2deg);
 }
 
 .ready {
-  top: 118px;
-  right: 1%;
-  width: 47%;
-  height: 146px;
-  border-radius: 18px 32px 22px 16px;
   background: #e9bc3d;
-  transform: rotate(1deg);
 }
 
 .howItWorks {
@@ -373,7 +362,7 @@
   }
 
   .fieldGrid {
-    height: 285px;
+    height: auto;
   }
 
   .field {

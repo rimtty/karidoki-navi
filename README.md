@@ -1,6 +1,6 @@
 # 🌾 刈りどきナビ
 
-刈りどきナビは、広島県三原市久井町の田んぼを地図で管理し、出穂後の日平均気温を積算して、次に確認する圃場を見つけやすくするスマートフォン向けWeb/PWAです。数値は収穫時期を決めるための補助情報であり、実際の収穫判断は現地の状態とあわせて行います。
+刈りどきナビは、広島県三原市久井町の田んぼを名前でかんたんに登録し、出穂後の日平均気温を積算して、次に確認する田んぼを色と順番で見つけやすくするスマートフォン向けWeb/PWAです。数値は収穫時期を決めるための補助情報であり、実際の収穫判断は現地の状態とあわせて行います。
 
 ## 対象地域とMVP
 
@@ -23,13 +23,13 @@
 | `/login` | メールアドレス＋パスワード、またはGoogleを選ぶログイン画面。メールでの新規登録も含む |
 | `/forgot-password` | 登録済みメールアドレスへパスワード再設定メールを送る画面 |
 | `/reset-password` | 再設定メールの認証後に新しいパスワードを登録する画面 |
-| `/app` | 今日の刈りどき地図。状態チップ、圃場ポリゴン、積算値、気象地点、反映日を表示 |
-| `/app/fields` | 刈取時期が近い順に確認できる田んぼ一覧 |
-| `/app/fields/new/1` ～ `/3` | 筆ポリゴン選択または手描き、名前・品種・出穂日、確認の3段階登録 |
-| `/app/fields/[fieldId]` | 圃場詳細、積算グラフ、データ品質、収穫登録 |
+| `/app` | 今日の田んぼ。刈りどきが近い順に、状態色・名前・大きさ・品種・積算値を表示 |
+| `/app/fields` | `/app`へ移動し、同じ田んぼ一覧を表示 |
+| `/app/fields/new/1` ～ `/3` | 名前・大きさ・品種・作付け日・出穂日を1画面で登録 |
+| `/app/fields/[fieldId]` | 田んぼ詳細、登録日、積算値、収穫登録 |
 | `/app/settings/variety-rules` | アカウント所有の品種別カスタムルールの登録・編集・削除 |
 
-圃場登録は `register_field_with_season` RPCへ1トランザクションで送信します。`account_id` はブラウザから送らず、認証セッションからDBが決定します。同じ冪等キーで再試行しても同じ登録結果を返し、二重タップもクライアント側で抑止します。地図・一覧・詳細は `get_field_map` / `get_field_detail` RPC等をDB行からアダプターでUIモデルへ変換して表示します。RLSとowner-scoped RPCの両方で、認証ユーザー自身のデータだけを扱います。
+田んぼ登録は `register_simple_field_with_season` RPCへ1トランザクションで送信します。`account_id` はブラウザから送らず、認証セッションからDBが決定します。同じ冪等キーで再試行しても同じ登録結果を返し、二重タップもクライアント側で抑止します。一覧・詳細は `get_field_overview` / `get_field_detail_simple` RPCをDB行から画面用モデルへ変換して表示します。RLSとowner-scoped RPCの両方で、認証ユーザー自身のデータだけを扱います。
 
 ## 認証とフォールバック
 
@@ -41,11 +41,11 @@ Supabaseの公開設定がないローカル開発時だけ、明示的な開発
 
 MVPの `JmaAmedasProvider` は、気象庁Webサイトが参照する地点別JSONを低頻度・キャッシュ付きで取得し、3時間ごとの8ファイルから正時24点を作って日平均を計算します。これは気象庁が安定性・提供継続性を保証する契約APIではありません（JMA非保証）。仕様変更や障害に備え、欠測を0℃にせず `MISSING` / `ESTIMATED` / `INVALID` として保持し、必要な場合はレビュー済みの手動CSVへ切り替えます。CSV形式、品質情報、再取得・訂正の扱いは [JMA/AMeDAS運用メモ](docs/weather-jma-amedas.md) を参照してください。
 
-日次処理はSupabase Cronから `update-weather` Edge Functionを起動し、取り込み後に作付けサマリーを再計算します。世羅（地点 `67316`）など、圃場から距離の近い地点を候補として提示します。気温の取得値や適期表示は必ず更新日・品質・観測地点を確認してください。
+日次処理はSupabase Cronから `update-weather` Edge Functionを起動し、取り込み後に作付けサマリーを再計算します。位置を入力しないMVP登録では、久井町向けの代表地点として世羅（地点 `67316`）をDB側で自動設定し、出穂日から積算します。通常画面では観測地点を選ばせません。気温の取得値や適期表示は必ず更新日・品質を確認してください。
 
-## 筆ポリゴンと地図
+## 筆ポリゴンと地図（通常画面では不使用）
 
-地図はMapLibre GL JS、背景は国土地理院タイル、筆ポリゴン候補は農林水産省（MAFF）の2026年FlatGeobufを使います。三原市久井町の `land_type=100`（田）として監査済みの候補は2,010件です。原本・生成物はリポジトリへ入れず、取得物のハッシュ・件数・構造検査を監査台帳に残します。取得、抽出、PostGIS投入、出典とロールバックは [MAFF筆ポリゴン取込手順](docs/maff-parcel-import.md) を参照してください。地図上には国土地理院とMAFFの出典表示を残します。
+MapLibre GL JS、国土地理院タイル、農林水産省（MAFF）の筆ポリゴンを使う旧実装と取込基盤は、検証履歴と将来利用のため残しています。ただし、実際の田んぼとのずれが大きく登録操作も難しいため、農家が使う通常画面からは外しました。現在は位置や形状を保存せず、大きさを「小・中・大」から選びます。詳しい決定は [農家向け地図なしUI ADR](docs/decisions/0004-farmer-first-no-map.md) を参照してください。
 
 ## Supabase / Vercel構成
 
@@ -53,7 +53,7 @@ MVPの `JmaAmedasProvider` は、気象庁Webサイトが参照する地点別JS
 | --- | --- |
 | Vercel | Next.js 16のWeb/PWA配信。FunctionsはSupabase東京リージョンに近い`hnd1`へ固定し、Server/Client境界を分けて`cookies()`、`params`、`searchParams`などのasync APIをサーバー側で扱う |
 | Supabase Auth | メール・Google認証、SSRセッション、認証ユーザーの識別 |
-| Supabase PostgreSQL + PostGIS | 圃場、作付け、品種、地域ルール、日別気象、筆候補の保存。RLSとRPCで所有者境界を強制 |
+| Supabase PostgreSQL + PostGIS | 田んぼ、作付け、品種、地域ルール、日別気象の保存。旧地図データとの互換性も維持し、RLSとRPCで所有者境界を強制 |
 | Supabase Edge Function | `update-weather`によるJMA取得、日別値のUPSERT、作付けサマリー再計算 |
 | Supabase Cron / Vault | 日次・再試行・週次訂正の起動と、Function URL・内部呼出し用secretの保管 |
 
@@ -117,7 +117,7 @@ pnpm e2e:local
 pnpm start
 ```
 
-`e2e:local`は先に `pnpm exec supabase start` を実行し、ローカルSupabaseだけを使います。Pixel 7相当のモバイルChromeで、未認証リダイレクト、メールログイン、3段階登録、一覧・詳細、収穫登録、ログアウト、公式ルール未設定表示に加え、ローカル受信箱の再設定メールから新パスワードで再ログインするまでを確認します。専用ユーザーとテスト結果の扱いは [モバイルE2E README](tests/e2e/README.md) を参照してください。
+`e2e:local`は先に `pnpm exec supabase start` を実行し、ローカルSupabaseだけを使います。Pixel 7相当のモバイルChromeで、未認証リダイレクト、メールログイン、1画面の田んぼ登録、一覧・詳細、収穫登録、ログアウト、公式ルール未設定表示に加え、ローカル受信箱の再設定メールから新パスワードで再ログインするまでを確認します。専用ユーザーとテスト結果の扱いは [モバイルE2E README](tests/e2e/README.md) を参照してください。
 
 MAFFの取得・検査・抽出はデータ作業用コマンドです。原本は一時ディレクトリへ出力してください。
 
@@ -129,7 +129,7 @@ pnpm maff:parcels extract --source-dir /tmp/karidoki-maff-2026-34-XXXX
 
 ## PWAとオフライン
 
-Manifest、アイコン、Service Worker、オンライン／オフライン表示を実装しています。Service Workerが保存するのは公開シェル、ハッシュ付き静的資産、国土地理院タイルだけで、`/app`、`/login`、`/auth`、Supabaseレスポンス、圃場データはCache Storageへ保存しません。オフライン中の登録・更新をキューイングせず、通信復旧後に再試行します。詳細は [PWA・オフライン方針](docs/pwa.md) を参照してください。
+Manifest、アイコン、Service Worker、オフライン表示を実装しています。Service Workerが保存するのは公開シェル、ハッシュ付き静的資産、旧地図機能用の国土地理院タイルだけで、`/app`、`/login`、`/auth`、Supabaseレスポンス、田んぼデータはCache Storageへ保存しません。オフライン中の登録・更新をキューイングせず、通信復旧後に再試行します。詳細は [PWA・オフライン方針](docs/pwa.md) を参照してください。
 
 iPhone SafariとAndroid Chromeの実機受入、ホーム画面インストール、通信遮断時の表示はまだ確認していません。現時点のPlaywrightはモバイルChromeエミュレーションであり、実機確認の代わりにはなりません。
 
@@ -146,6 +146,7 @@ Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTP�
 - [パイロット地域・プラットフォームADR](docs/decisions/0001-pilot-region-and-platform.md)
 - [JMA気象ソースADR](docs/decisions/0002-jma-weather-source.md)
 - [ユーザー定義品種ルールADR](docs/decisions/0003-user-defined-variety-rules.md)
+- [農家向け地図なしUI ADR](docs/decisions/0004-farmer-first-no-map.md)
 - [実装計画書](docs/implementation-plan.md)
 - [気象庁 過去の気象データ・ダウンロード](https://www.data.jma.go.jp/risk/obsdl/)
 - [農林水産省 筆ポリゴン（2026年）](https://www.maff.go.jp/j/tokei/census/shuraku_data/2025/mb/index.html)

@@ -48,10 +48,10 @@ export function FixtureNotice({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`${styles.fixture} ${compact ? styles.compact : ""}`} role="note">
       <span className={styles.fixtureMark} aria-hidden="true">
-        DEV
+        試用
       </span>
       <p>
-        開発用フィクスチャを表示中。圃場・気象・適期ルールは本番データに未接続です。
+        開発用の見本を表示中です。田んぼ・気象・刈りどき設定は本番データではありません。
       </p>
     </div>
   );

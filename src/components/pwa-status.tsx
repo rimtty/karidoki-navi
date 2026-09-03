@@ -94,9 +94,11 @@ export function PwaStatus() {
 
   return (
     <div className={styles.container} aria-live="polite">
-      <span className={`${styles.connection} ${connection === "offline" ? styles.offline : styles.online}`}>
-        {connection === "offline" ? "オフライン：保存済みの画面を表示中" : "オンライン"}
-      </span>
+      {connection === "offline" && (
+        <span className={`${styles.connection} ${styles.offline}`}>
+          オフライン：保存済みの画面を表示中
+        </span>
+      )}
       {updateReady && (
         <button className={styles.update} type="button" onClick={applyUpdate}>
           更新があります

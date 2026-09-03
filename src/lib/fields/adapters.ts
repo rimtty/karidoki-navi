@@ -3,6 +3,7 @@ import {
   type Coordinate,
   type DataQuality,
   type FieldStatus,
+  type FieldSizeClass,
   type FieldViewModel,
   type ParcelCandidateViewModel,
   type ParcelGeometry,
@@ -21,6 +22,10 @@ export type FieldMapRpcRow =
   Database["public"]["Functions"]["get_field_map"]["Returns"][number];
 export type FieldDetailRpcRow =
   Database["public"]["Functions"]["get_field_detail"]["Returns"][number];
+export type FieldOverviewRpcRow =
+  Database["public"]["Functions"]["get_field_overview"]["Returns"][number];
+export type FieldDetailSimpleRpcRow =
+  Database["public"]["Functions"]["get_field_detail_simple"]["Returns"][number];
 export type RiceVarietyRpcRow =
   Database["public"]["Tables"]["rice_varieties"]["Row"];
 export type ParcelCandidateRpcRow =
@@ -86,6 +91,19 @@ function asText(value: unknown, label: string, nullable = false): string | null 
 function asOptionalTemp(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   return asFiniteNumber(value, "積算気温");
+}
+
+function asSizeClass(value: unknown): FieldSizeClass {
+  switch (value) {
+    case "SMALL":
+      return "small";
+    case "MEDIUM":
+      return "medium";
+    case "LARGE":
+      return "large";
+    default:
+      throw new FieldAdapterError("Supabaseの田んぼの大きさが不正です。");
+  }
 }
 
 function asMaturityStatus(value: unknown): MaturityStatus | null {
@@ -333,8 +351,11 @@ function baseField(row: {
     varietyId: asId(row.variety_id, "variety_id", true),
     year: seasonYear,
     seasonId,
+    sizeClass:
+      areaM2 < 1000 ? "small" : areaM2 < 3000 ? "medium" : "large",
     areaM2,
     polygon: asPolygon(row.geom_geojson),
+    plantingDate: null,
     headingDate,
     accumulationStartDate: null,
     accumulatedTempC: asOptionalTemp(row.accumulated_temp_c),
@@ -350,6 +371,85 @@ function baseField(row: {
     rule: null,
     dailyAccumulation: [],
   };
+}
+
+function baseSimpleField(row: {
+  field_id: unknown;
+  field_name: unknown;
+  field_size_class: unknown;
+  season_id: unknown;
+  season_year: unknown;
+  variety_id: unknown;
+  variety_name: unknown;
+  planting_date: unknown;
+  heading_date: unknown;
+  harvest_date: unknown;
+  accumulated_temp_c: unknown;
+  maturity_status: string | null | undefined;
+  lifecycle_status?: string | null | undefined;
+  data_status: string | null | undefined;
+  accumulated_through: unknown;
+  missing_day_count?: unknown;
+  estimated_days_to_start?: unknown;
+  harvest_accumulated_temp_c?: unknown;
+}): FieldViewModel {
+  const headingDate = asDate(row.heading_date, "出穂日");
+  const harvestDate = asDate(row.harvest_date, "収穫日");
+  const seasonYear =
+    row.season_year === null || row.season_year === undefined
+      ? null
+      : asNonNegativeInteger(row.season_year, "年度");
+  const missingDays =
+    row.missing_day_count === undefined || row.missing_day_count === null
+      ? 0
+      : asNonNegativeInteger(row.missing_day_count, "欠測日数");
+  const estimatedDays =
+    row.estimated_days_to_start === undefined || row.estimated_days_to_start === null
+      ? null
+      : asNonNegativeInteger(row.estimated_days_to_start, "参考残り日数");
+
+  return {
+    id: asId(row.field_id, "field_id"),
+    name: asText(row.field_name, "field_name"),
+    variety: asText(row.variety_name, "品種名", true),
+    varietyId: asId(row.variety_id, "variety_id", true),
+    year: seasonYear,
+    seasonId: asId(row.season_id, "season_id", true),
+    sizeClass: asSizeClass(row.field_size_class),
+    areaM2: null,
+    polygon: [],
+    plantingDate: asDate(row.planting_date, "田植え日"),
+    headingDate,
+    accumulationStartDate: headingDate,
+    accumulatedTempC: asOptionalTemp(row.accumulated_temp_c),
+    harvestDate,
+    harvestAccumulatedTempC: asOptionalTemp(row.harvest_accumulated_temp_c),
+    remainingTempC: null,
+    referenceDays: estimatedDays,
+    status: mapStatus(
+      asMaturityStatus(row.maturity_status),
+      harvestDate,
+      row.lifecycle_status,
+    ),
+    dataQuality: mapQuality(asDataStatus(row.data_status)),
+    observedThrough: asDate(row.accumulated_through, "反映済み日"),
+    weatherStation: null,
+    missingDays,
+    rule: null,
+    dailyAccumulation: [],
+  };
+}
+
+export function adaptFieldOverviewRows(
+  rows: readonly FieldOverviewRpcRow[],
+): FieldViewModel[] {
+  return rows.map(baseSimpleField);
+}
+
+export function adaptFieldDetailSimpleRows(
+  rows: readonly FieldDetailSimpleRpcRow[],
+): FieldViewModel[] {
+  return rows.map(baseSimpleField);
 }
 
 export function adaptFieldMapRow(row: FieldMapRpcRow): FieldViewModel {

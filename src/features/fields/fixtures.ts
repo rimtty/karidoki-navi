@@ -65,10 +65,10 @@ export const FIELD_STATUS_META: Record<
   FieldStatus,
   { label: string; shortLabel: string; tone: string; glyph: string }
 > = {
-  ready: { label: "刈取適期", shortLabel: "適期", tone: "ready", glyph: "●" },
-  soon: { label: "刈取接近", shortLabel: "接近", tone: "soon", glyph: "◐" },
+  ready: { label: "刈りどき", shortLabel: "刈りどき", tone: "ready", glyph: "●" },
+  soon: { label: "もうすぐ", shortLabel: "もうすぐ", tone: "soon", glyph: "◐" },
   growing: { label: "登熟中", shortLabel: "登熟中", tone: "growing", glyph: "○" },
-  overdue: { label: "適期超過", shortLabel: "超過", tone: "overdue", glyph: "!" },
+  overdue: { label: "刈り遅れ", shortLabel: "刈り遅れ", tone: "overdue", glyph: "!" },
   "not-configured": {
     label: "未設定",
     shortLabel: "未設定",
@@ -112,8 +112,9 @@ export const DATA_QUALITY_META: Record<
 export const FIELD_FIXTURES: FieldFixture[] = [
   {
     id: "field-kui-east",
-    name: "久井東圃場",
+    name: "東の田んぼ",
     variety: "コシヒカリ",
+    sizeClass: "large",
     areaM2: 1_180,
     polygon: [
       [133.0717, 34.5266],
@@ -121,6 +122,7 @@ export const FIELD_FIXTURES: FieldFixture[] = [
       [133.0761, 34.5252],
       [133.073, 34.5244],
     ],
+    plantingDate: "2026-05-18",
     headingDate: "2026-08-04",
     accumulationStartDate: "2026-08-05",
     accumulatedTempC: 936.4,
@@ -137,8 +139,9 @@ export const FIELD_FIXTURES: FieldFixture[] = [
   },
   {
     id: "field-kui-naka",
-    name: "久井中央圃場",
+    name: "家の前",
     variety: "あきさかり",
+    sizeClass: "small",
     areaM2: 860,
     polygon: [
       [133.0758, 34.5248],
@@ -146,6 +149,7 @@ export const FIELD_FIXTURES: FieldFixture[] = [
       [133.0803, 34.5231],
       [133.077, 34.5223],
     ],
+    plantingDate: "2026-05-22",
     headingDate: "2026-08-08",
     accumulationStartDate: "2026-08-09",
     accumulatedTempC: 824.8,
@@ -162,8 +166,9 @@ export const FIELD_FIXTURES: FieldFixture[] = [
   },
   {
     id: "field-kui-south",
-    name: "久井南圃場",
+    name: "南の田んぼ",
     variety: "あきろまん",
+    sizeClass: "medium",
     areaM2: 1_420,
     polygon: [
       [133.0751, 34.5212],
@@ -171,6 +176,7 @@ export const FIELD_FIXTURES: FieldFixture[] = [
       [133.0809, 34.5195],
       [133.0765, 34.5187],
     ],
+    plantingDate: "2026-05-25",
     headingDate: "2026-08-14",
     accumulationStartDate: "2026-08-15",
     accumulatedTempC: 548.1,
@@ -187,8 +193,9 @@ export const FIELD_FIXTURES: FieldFixture[] = [
   },
   {
     id: "field-kui-west",
-    name: "久井西圃場",
+    name: "西の田んぼ",
     variety: null,
+    sizeClass: "small",
     areaM2: 710,
     polygon: [
       [133.0682, 34.5226],
@@ -196,6 +203,7 @@ export const FIELD_FIXTURES: FieldFixture[] = [
       [133.072, 34.5214],
       [133.0691, 34.5208],
     ],
+    plantingDate: null,
     headingDate: null,
     accumulationStartDate: null,
     accumulatedTempC: null,
@@ -212,8 +220,9 @@ export const FIELD_FIXTURES: FieldFixture[] = [
   },
   {
     id: "field-kui-hayama",
-    name: "葉山圃場",
+    name: "山ぎわ",
     variety: "ヒノヒカリ",
+    sizeClass: "medium",
     areaM2: 980,
     polygon: [
       [133.0818, 34.5268],
@@ -221,6 +230,7 @@ export const FIELD_FIXTURES: FieldFixture[] = [
       [133.0865, 34.5252],
       [133.083, 34.5243],
     ],
+    plantingDate: "2026-06-01",
     headingDate: "2026-07-31",
     accumulationStartDate: "2026-08-01",
     accumulatedTempC: 1_142.7,
@@ -252,7 +262,7 @@ export const PARCEL_CANDIDATE_FIXTURES: ParcelCandidateViewModel[] =
       municipalityCode: "34204",
       settlementCode: `342042400${index + 1}`,
       landType: 100,
-      areaM2: field.areaM2,
+      areaM2: field.areaM2 ?? 1,
       geometry,
       label: field.name,
     };
