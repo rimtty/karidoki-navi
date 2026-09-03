@@ -24,6 +24,7 @@
 
 .brand {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
   justify-self: start;
   gap: 9px;
@@ -222,6 +223,9 @@
 
 .accountPrompt a,
 .backLink a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: #4c7446;
   font-weight: 800;
   text-decoration: underline;

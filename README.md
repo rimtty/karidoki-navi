@@ -137,6 +137,8 @@ iPhone SafariとAndroid Chromeの実機受入、ホーム画面インストー�
 
 本番前に、Supabase側のGoogle OAuthクライアント・リダイレクト設定と、確認メール／パスワード再設定用の本番SMTPを管理者が準備する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
 
+リポジトリ内の合否と本番外部ゲートを分けた監査表は [リリース準備監査](docs/release-readiness.md) を参照してください。
+
 ## データソースと設計資料
 
 - [パイロット地域・プラットフォームADR](docs/decisions/0001-pilot-region-and-platform.md)

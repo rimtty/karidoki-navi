@@ -31,6 +31,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit production dependencies
+        run: pnpm audit --prod --audit-level high
+
+      - name: Check tracked secret patterns
+        run: |
+          set -euo pipefail
+          cron_secret_key="UPDATE_WEATHER_CRON_SECRET"
+          tracked_secret_pattern="eyJ[A-Za-z0-9_-]{20,}|sb_""secret_[A-Za-z0-9_-]+|service_""role_[A-Za-z0-9_-]+|${cron_secret_key}=[^$<{[:space:]]+"
+          if git grep -n -E "$tracked_secret_pattern" -- ':!pnpm-lock.yaml' ':!supabase/config.toml'; then
+            echo "Potential secret pattern found in tracked files."
+            exit 1
+          fi
+
       - name: Verify PWA assets and policy
         run: node scripts/verify-pwa.mjs
 
@@ -75,6 +88,16 @@ jobs:
         # Supabase prints local service keys during startup. Keep its output
         # out of the CI log; run-local.mjs reads status in memory instead.
         run: pnpm exec supabase start > /tmp/karidoki-supabase-start.log 2>&1
+
+      - name: Lint public database schema
+        run: pnpm exec supabase db lint --local --schema public --level warning --fail-on error
+
+      - name: Run database integration and security tests
+        run: |
+          set -euo pipefail
+          for test_file in supabase/tests/*.sql; do
+            docker exec -i supabase_db_karidoki-navi psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f - < "$test_file"
+          done
 
       - name: Run mobile E2E
         run: pnpm e2e:local

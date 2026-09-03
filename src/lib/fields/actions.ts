@@ -2,7 +2,10 @@
 
 import { isLocalDate } from "@/domain";
 import { FIELD_FIXTURES } from "@/features/fields/fixtures";
-import { getSupabasePublicConfig } from "@/lib/supabase/config";
+import {
+  getSupabasePublicConfig,
+  SUPABASE_CONFIG_ERROR,
+} from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Coordinate,
@@ -132,7 +135,9 @@ function fallbackRegistration(input: RegistrationInput): RegistrationActionResul
 export async function registerFieldWithSeasonAction(
   input: RegistrationInput,
 ): Promise<RegistrationActionResult> {
-  const source = getSupabasePublicConfig() ? "supabase" : "fixture";
+  const config = getSupabasePublicConfig();
+  const source: RegistrationActionResult["source"] =
+    config || !isDevelopmentFallbackAllowed() ? "supabase" : "fixture";
   if (!input || typeof input !== "object") {
     return { ok: false, source, message: REGISTRATION_ERROR };
   }
@@ -160,8 +165,11 @@ export async function registerFieldWithSeasonAction(
     };
   }
 
-  const config = getSupabasePublicConfig();
-  if (!config) return fallbackRegistration(input);
+  if (!config) {
+    return isDevelopmentFallbackAllowed()
+      ? fallbackRegistration(input)
+      : { ok: false, source: "supabase", message: SUPABASE_CONFIG_ERROR };
+  }
 
   try {
     const supabase = await createClient();
@@ -214,7 +222,9 @@ export async function registerHarvestAction(input: {
   harvestDate: string;
   accumulatedTempC: number | null;
 }): Promise<HarvestActionResult> {
-  const source = getSupabasePublicConfig() ? "supabase" : "fixture";
+  const config = getSupabasePublicConfig();
+  const source: HarvestActionResult["source"] =
+    config || !isDevelopmentFallbackAllowed() ? "supabase" : "fixture";
   if (
     !input ||
     typeof input !== "object" ||
@@ -232,8 +242,11 @@ export async function registerHarvestAction(input: {
     };
   }
 
-  const config = getSupabasePublicConfig();
-  if (!config) return { ok: true, source: "fixture", harvestDate: input.harvestDate };
+  if (!config) {
+    return isDevelopmentFallbackAllowed()
+      ? { ok: true, source: "fixture", harvestDate: input.harvestDate }
+      : { ok: false, source: "supabase", message: SUPABASE_CONFIG_ERROR };
+  }
 
   try {
     const supabase = await createClient();

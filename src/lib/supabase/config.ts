@@ -7,6 +7,9 @@ export type SupabasePublicConfig = {
   publishableKey: string;
 };
 
+export const SUPABASE_CONFIG_ERROR =
+  "Supabaseの接続設定がありません。管理者が設定を確認して再試行してください。";
+
 export function getSupabasePublicConfig(): SupabasePublicConfig | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
@@ -22,7 +25,11 @@ export function getSupabasePublicConfig(): SupabasePublicConfig | null {
 
   try {
     const parsedUrl = new URL(url);
-    if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+    const isLocalDevelopment = process.env.NODE_ENV !== "production";
+    if (
+      parsedUrl.protocol !== "https:" &&
+      !(isLocalDevelopment && parsedUrl.protocol === "http:")
+    ) {
       return null;
     }
   } catch {
@@ -36,9 +43,7 @@ export function requireSupabasePublicConfig(): SupabasePublicConfig {
   const config = getSupabasePublicConfig();
 
   if (!config) {
-    throw new Error(
-      "Supabaseの接続設定がありません。NEXT_PUBLIC_SUPABASE_URLとNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEYを設定してください。",
-    );
+    throw new Error(SUPABASE_CONFIG_ERROR);
   }
 
   return config;

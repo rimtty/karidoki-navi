@@ -6,7 +6,10 @@ import {
   adaptRiceVarietyRows,
   FieldAdapterError,
 } from "./adapters";
-import { getSupabasePublicConfig } from "@/lib/supabase/config";
+import {
+  getSupabasePublicConfig,
+  SUPABASE_CONFIG_ERROR,
+} from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { CONFIRMED_RICE_VARIETY_NAMES } from "@/features/fields/view-model";
 
@@ -61,7 +64,11 @@ export async function loadFieldMapData(
   year: number,
 ): Promise<FieldDataResult<FieldViewModel[]>> {
   const config = getSupabasePublicConfig();
-  if (!config) return fixtureResult(FIELD_FIXTURES);
+  if (!config) {
+    return canUseFixtureFallback()
+      ? fixtureResult(FIELD_FIXTURES)
+      : dataError(SUPABASE_CONFIG_ERROR);
+  }
 
   try {
     const { client, authError } = await authenticatedClient();
@@ -94,7 +101,11 @@ export async function loadFieldDetailData(
   year: number,
 ): Promise<FieldDataResult<FieldViewModel | null>> {
   const config = getSupabasePublicConfig();
-  if (!config) return fixtureResult(getFieldFixture(fieldId) ?? null);
+  if (!config) {
+    return canUseFixtureFallback()
+      ? fixtureResult(getFieldFixture(fieldId) ?? null)
+      : dataError(SUPABASE_CONFIG_ERROR);
+  }
 
   try {
     const { client, authError } = await authenticatedClient();
@@ -136,7 +147,11 @@ export async function loadRiceVarieties(): Promise<
   FieldDataResult<RiceVarietyOption[]>
 > {
   const config = getSupabasePublicConfig();
-  if (!config) return fixtureResult(FIXTURE_RICE_VARIETIES);
+  if (!config) {
+    return canUseFixtureFallback()
+      ? fixtureResult(FIXTURE_RICE_VARIETIES)
+      : dataError(SUPABASE_CONFIG_ERROR);
+  }
 
   try {
     const { client, authError } = await authenticatedClient();

@@ -1,6 +1,9 @@
 import { FIXTURE_RICE_VARIETIES } from "@/features/fields/fixtures";
 import { CONFIRMED_RICE_VARIETY_NAMES } from "@/features/fields/view-model";
-import { getSupabasePublicConfig } from "@/lib/supabase/config";
+import {
+  getSupabasePublicConfig,
+  SUPABASE_CONFIG_ERROR,
+} from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type {
@@ -82,7 +85,18 @@ function fixtureSettings(): VarietyRuleSettingsData {
 }
 
 export async function loadVarietyRuleSettings(): Promise<VarietyRuleSettingsData> {
-  if (!getSupabasePublicConfig()) return fixtureSettings();
+  const config = getSupabasePublicConfig();
+  if (!config) {
+    return canUseFixtureFallback()
+      ? fixtureSettings()
+      : {
+          accountId: null,
+          cards: [],
+          regions: [],
+          source: "supabase",
+          error: SUPABASE_CONFIG_ERROR,
+        };
+  }
 
   try {
     const client = await createClient();
