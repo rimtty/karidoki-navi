@@ -11,6 +11,7 @@
 .statusCard.ready { border-color: #d7aa27; background: #fff3c1; }.statusCard.ready::before { background: #d99a00; }
 .statusCard.soon { border-color: #d4c459; background: #fffbe1; }.statusCard.soon::before { background: #bfad27; }
 .statusCard.growing { border-color: #8ebb78; background: #eef8e8; }.statusCard.growing::before { background: #5f9d4a; }
+.statusCard.beforeHeading { border-color: #a5c494; background: #f1f8ed; }.statusCard.beforeHeading::before { background: #78a866; }
 .statusCard.overdue { border-color: #d38473; background: #ffefea; }.statusCard.overdue::before { background: #bf5a49; }
 .statusCard.harvested { border-color: #c8cec5; background: #f1f3f0; }.statusCard.harvested::before { background: #8c9789; }
 .statusLabel { width: fit-content; padding: 6px 10px; border-radius: 999px; color: #263f22; background: rgba(255,255,255,.7); font-size: .74rem; font-weight: 900; }

@@ -20,8 +20,9 @@ const statusOrder: Record<FieldStatus, number> = {
   overdue: 1,
   soon: 2,
   growing: 3,
-  "not-configured": 4,
-  harvested: 5,
+  "before-heading": 4,
+  "not-configured": 5,
+  harvested: 6,
 };
 
 const sizeLabels: Record<FieldSizeClass, string> = {
@@ -60,6 +61,7 @@ function progressMessage(field: FieldViewModel): string {
     return `${progress}%`;
   }
   if (field.status === "growing") return "育っています";
+  if (field.status === "before-heading") return "出穂日を待っています";
   if (field.status === "harvested") return "収穫済み";
   return field.headingDate ? "目安を設定" : "出穂日を入力";
 }
@@ -69,6 +71,7 @@ function progressCaption(field: FieldViewModel): string {
   if (field.status === "overdue") return "早めに田んぼを確認してください";
   if (field.status === "soon") return "刈り始めの目安まで";
   if (field.status === "growing") return "刈り始めまでの進み具合";
+  if (field.status === "before-heading") return "出穂日から気温を計算します";
   if (field.status === "harvested") return formatDate(field.harvestDate ?? null);
   return field.headingDate ? "設定から目安を登録してください" : "田んぼの詳細から入力できます";
 }
@@ -93,7 +96,9 @@ function FieldCard({ field }: { field: FieldViewModel }) {
         <span>{field.variety ?? "品種未設定"}</span>
         <span>出穂 {formatDate(field.headingDate)}</span>
       </div>
-      {field.dataQuality !== "complete" && field.status !== "not-configured" && (
+      {field.dataQuality !== "complete" &&
+        field.status !== "not-configured" &&
+        field.status !== "before-heading" && (
         <p className={styles.dataNotice}>
           {field.dataQuality === "pending" && "気温を計算しています"}
           {field.dataQuality === "incomplete" && "一部の気温データを確認中です"}
@@ -124,7 +129,9 @@ export function HomeMapView({
   const fields = useMemo(() => {
     const filtered = initialFields.filter((field) => {
       if (filter === "attention") return needsAttention(field);
-      if (filter === "growing") return field.status === "growing";
+      if (filter === "growing") {
+        return field.status === "growing" || field.status === "before-heading";
+      }
       if (filter === "harvested") return field.status === "harvested";
       return true;
     });
@@ -161,7 +168,13 @@ export function HomeMapView({
             {([
               ["all", "すべて", initialFields.length],
               ["attention", "要確認", attentionCount],
-              ["growing", "刈りどき前", initialFields.filter((field) => field.status === "growing").length],
+              [
+                "growing",
+                "刈りどき前",
+                initialFields.filter(
+                  (field) => field.status === "growing" || field.status === "before-heading",
+                ).length,
+              ],
               ["harvested", "収穫済", initialFields.filter((field) => field.status === "harvested").length],
             ] as const).map(([value, label, count]) => (
               <button key={value} type="button" aria-pressed={filter === value}

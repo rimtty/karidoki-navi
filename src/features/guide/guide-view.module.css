@@ -260,6 +260,7 @@
 }
 
 .growing { background: #9fd17f; }
+.beforeHeading { background: #c9dfb9; }
 .soon { background: #eadb65; }
 .ready { background: #efbf38; }
 
@@ -617,7 +618,7 @@
   }
 
   .quickHelp > div {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0;
   }
 
@@ -646,17 +647,21 @@
   }
 
   .quickHelp p {
-    padding: 0 20px;
+    padding: 16px 20px;
     border-right: 1px solid #dbe4d7;
-    border-bottom: 0;
+    border-bottom: 1px solid #dbe4d7;
   }
 
-  .quickHelp p:first-child {
+  .quickHelp p:nth-child(odd) {
     padding-left: 0;
   }
 
-  .quickHelp p:last-child {
+  .quickHelp p:nth-child(even) {
     padding-right: 0;
     border-right: 0;
+  }
+
+  .quickHelp p:nth-last-child(-n + 2) {
+    border-bottom: 0;
   }
 }

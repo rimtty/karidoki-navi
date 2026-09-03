@@ -298,6 +298,8 @@ export function FieldMap({
             "#d6c95c",
             "growing",
             "#83b36b",
+            "before-heading",
+            "#a9c596",
             "overdue",
             "#cf7864",
             "harvested",

@@ -10,6 +10,7 @@ export type FieldStatus =
   | "ready"
   | "soon"
   | "growing"
+  | "before-heading"
   | "overdue"
   | "not-configured"
   | "harvested";

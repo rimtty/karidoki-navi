@@ -275,6 +275,7 @@ function mapStatus(
     case "GROWING":
       return "growing";
     case "BEFORE_HEADING":
+      return "before-heading";
     case "NOT_CONFIGURED":
     default:
       return "not-configured";

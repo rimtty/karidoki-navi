@@ -41,6 +41,12 @@
   border-color: #8bb578;
 }
 
+.beforeHeading {
+  color: #294d25;
+  background: #e3f0dc;
+  border-color: #a9c79a;
+}
+
 .overdue {
   color: #6d241f;
   background: #f8d7cd;

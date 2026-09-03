@@ -35,6 +35,7 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
     if (status === "overdue") return "刈りどきを過ぎています。早めに田んぼを確認してください。";
     if (status === "soon") return field.referenceDays !== null ? `刈りどきまで、あと約${field.referenceDays}日です。` : "刈りどきが近づいています。";
     if (status === "growing") return "刈りどき前です。お米が育っています。";
+    if (status === "before-heading") return "出穂日を待っています。まだ気温の計算は始まりません。";
     return "この品種の刈りどき設定を確認してください。";
   }, [field.referenceDays, status]);
 
@@ -104,11 +105,16 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
           <section className={`${styles.statusCard} ${styles[statusMeta.tone]}`}>
             <span className={styles.statusLabel}>{statusMeta.label}</span>
             <h2>{summary}</h2>
-            <div className={styles.mainMetric}><span>出穂後の積算気温</span><strong>{formatTemp(field.accumulatedTempC)}</strong></div>
+            <div className={styles.mainMetric}>
+              <span>{status === "before-heading" ? "登録した出穂日" : "出穂後の積算気温"}</span>
+              <strong>{status === "before-heading" ? formatDate(field.headingDate) : formatTemp(field.accumulatedTempC)}</strong>
+            </div>
             {field.referenceDays !== null && status === "soon" && <p className={styles.days}>あと約 {field.referenceDays} 日</p>}
           </section>
 
-          <QualityNotice quality={field.dataQuality} observedThrough={field.observedThrough} missingDays={field.missingDays} compact />
+          {status !== "before-heading" && (
+            <QualityNotice quality={field.dataQuality} observedThrough={field.observedThrough} missingDays={field.missingDays} compact />
+          )}
         </div>
 
         <div className={styles.secondaryColumn}>

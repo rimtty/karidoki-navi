@@ -292,6 +292,44 @@ test("刈りどき設定は農家向けの3項目だけを大きく表示する"
   await expect(addedVariety.getByLabel("刈り始めの積算気温")).toBeVisible();
 });
 
+test("目安を設定した出穂日前の田んぼは未設定ではなく出穂前になる", async ({ page }) => {
+  await login(page);
+  await page.goto("/app/fields/new/1");
+  await page.getByLabel(/田んぼの名前/).fill("E2E出穂前テスト田んぼ");
+  await page.locator("label").filter({ hasText: "ふつう" }).click();
+  await page.getByLabel("品種").selectOption({ label: "あきさかり" });
+  await page.getByLabel(/田植え日/).fill("2026-05-25");
+  await page.getByLabel(/出穂日/).fill("2026-09-30");
+  await page.getByRole("button", { name: "この内容で登録する" }).click();
+  await expect(page).toHaveURL(/\/app\/fields\/[0-9a-f-]+$/);
+  const fieldUrl = page.url();
+  await expect(page.getByText("刈りどきの基準が未設定です")).toBeVisible();
+
+  await page.goto("/app/settings/variety-rules");
+  const akisakari = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "あきさかり" }) });
+  await akisakari.getByRole("button", { name: "この品種の目安を登録する" }).click();
+  await akisakari.getByLabel("刈り始めの積算気温").fill("1000");
+  await akisakari.getByLabel("刈り終わりの積算気温").fill("1100");
+  await akisakari.getByLabel("この目安の出どころ").fill("E2E出穂前の作業ノート");
+  await akisakari.getByRole("button", { name: "この目安を保存する" }).click();
+  await expect(page.getByRole("status")).toContainText("未設定の田んぼにも反映しました");
+
+  await page.goto(fieldUrl);
+  await expect(page.getByText("出穂前", { exact: true })).toBeVisible();
+  await expect(page.getByText("出穂日を待っています。まだ気温の計算は始まりません。")).toBeVisible();
+  await expect(page.getByText("登録した出穂日")).toBeVisible();
+  await expect(page.getByText("2026年9月30日", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("刈りどきの基準が未設定です")).toHaveCount(0);
+
+  await page.goto("/app");
+  const fieldTile = page.getByRole("link", { name: /E2E出穂前テスト田んぼ/ });
+  await expect(fieldTile.getByText("出穂前", { exact: true })).toBeVisible();
+  await expect(fieldTile.getByText("出穂日を待っています")).toBeVisible();
+  await expect(fieldTile.getByText("目安を設定", { exact: true })).toHaveCount(0);
+});
+
 test("メールログインから田んぼ登録・詳細・収穫・ログアウトまで通る", async ({ page }) => {
   await login(page);
   await expect(page.getByRole("heading", { name: "今日の田んぼ" })).toBeVisible();

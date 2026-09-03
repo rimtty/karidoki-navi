@@ -45,6 +45,13 @@ const previewFields = [
     tone: "soon",
   },
   {
+    name: "上の田んぼ",
+    status: "出穂前",
+    detail: "出穂日を待っています",
+    meta: "コシヒカリ・中",
+    tone: "beforeHeading",
+  },
+  {
     name: "南の田んぼ",
     status: "刈りどき前",
     detail: "61%",
@@ -195,7 +202,7 @@ export function GuideView() {
           {currentStep === 2 && (
             <div className={styles.explanation}>
               <strong>金色になった田んぼから確認</strong>
-              <p>緑は刈りどき前、黄色はもうすぐ、金色は刈りどきです。色だけでなく文字でも表示します。</p>
+              <p>うすい緑は出穂前、緑は刈りどき前、黄色はもうすぐ、金色は刈りどきです。色だけでなく文字でも表示します。</p>
             </div>
           )}
 
@@ -266,6 +273,7 @@ export function GuideView() {
         <h2>迷ったときは</h2>
         <div>
           <p><strong>田んぼが「未設定」になる</strong><span>その品種の刈りどきの目安を設定します。</span></p>
+          <p><strong>「出穂前」と表示される</strong><span>設定は完了しています。登録した出穂日から気温を自動で計算します。</span></p>
           <p><strong>作っている品種がない</strong><span>設定画面の「品種を追加」から登録できます。</span></p>
           <p><strong>数字が分からない</strong><span>作業ノートやJAなどへ確認し、分かるまで空欄で大丈夫です。</span></p>
         </div>
