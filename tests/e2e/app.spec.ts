@@ -99,7 +99,18 @@ test("未認証の /app はログインへ誘導し、ログインフォーム�
   await expect(page).toHaveURL(/\/login\?next=%2Fapp/);
   await expect(page.getByLabel("メールアドレス")).toBeVisible();
   await expect(page.getByLabel("パスワード")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Googleでログイン" })).toBeVisible();
+  const googleButton = page.getByRole("button", { name: "Googleでログイン" });
+  await expect(googleButton).toBeVisible();
+  const googleLogo = googleButton.getByTestId("google-logo");
+  await expect(googleLogo).toBeVisible();
+  await expect(googleLogo.locator("path")).toHaveCount(4);
+  await expect
+    .poll(() =>
+      googleLogo.locator("path").evaluateAll((paths) =>
+        paths.map((path) => path.getAttribute("fill")),
+      ),
+    )
+    .toEqual(["#4285F4", "#34A853", "#FBBC05", "#EA4335"]);
 
   await page.getByRole("button", { name: "メールアドレスでログイン" }).click();
   await expect(page.locator('p[role="alert"]')).toContainText("メールアドレスの形式");
@@ -176,8 +187,17 @@ test("刈りどき設定は農家向けの3項目だけを大きく表示する"
     .filter({ has: page.getByRole("heading", { name: "コシヒカリ" }) });
   await koshihikari.getByRole("button", { name: "この品種の目安を登録する" }).click();
 
-  await expect(koshihikari.getByLabel("刈り始めの積算気温")).toBeVisible();
-  await expect(koshihikari.getByLabel("刈り終わりの積算気温")).toBeVisible();
+  const startInput = koshihikari.getByLabel("刈り始めの積算気温");
+  const endInput = koshihikari.getByLabel("刈り終わりの積算気温");
+  await expect(startInput).toBeVisible();
+  await expect(endInput).toBeVisible();
+  await expect(startInput).toHaveAttribute("placeholder", "参考：1000");
+  await expect(endInput).toHaveAttribute("placeholder", "参考：1100");
+  await expect(startInput).toHaveValue("");
+  await expect(endInput).toHaveValue("");
+  await expect(
+    koshihikari.getByText("薄い数字は参考用の入力例です。地域や年によって変わるため、自動では保存しません。"),
+  ).toBeVisible();
   await expect(koshihikari.getByLabel("この目安の出どころ")).toBeVisible();
   await expect(koshihikari.getByText("出穂日当日")).toBeVisible();
   await expect(koshihikari.getByText("三原市久井町")).toBeVisible();

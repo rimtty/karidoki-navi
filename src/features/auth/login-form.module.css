@@ -86,17 +86,11 @@
   background: #f4f9f1;
 }
 
-.googleGlyph {
-  display: grid;
+.googleLogo {
+  display: block;
   width: 22px;
   height: 22px;
-  place-items: center;
-  border: 1px solid #d7dfd4;
-  border-radius: 50%;
-  color: #43825a;
-  font-family: Arial, sans-serif;
-  font-size: 0.76rem;
-  font-weight: 900;
+  flex: 0 0 auto;
 }
 
 .divider {

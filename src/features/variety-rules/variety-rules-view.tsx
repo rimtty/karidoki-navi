@@ -87,7 +87,7 @@ function RuleForm({
               max="3000"
               step="1"
               inputMode="numeric"
-              placeholder="数字を入力"
+              placeholder="参考：1000"
               value={input("startTempC")}
               onChange={(event) => onChange("startTempC", event.target.value)}
               aria-invalid={Boolean(errors.startTempC)}
@@ -118,7 +118,7 @@ function RuleForm({
               max="3000"
               step="1"
               inputMode="numeric"
-              placeholder="数字を入力"
+              placeholder="参考：1100"
               value={input("endTempC")}
               onChange={(event) => onChange("endTempC", event.target.value)}
               aria-invalid={Boolean(errors.endTempC)}
@@ -136,6 +136,10 @@ function RuleForm({
           )}
         </div>
       </div>
+
+      <p className={styles.referenceNote}>
+        薄い数字は参考用の入力例です。地域や年によって変わるため、自動では保存しません。
+      </p>
 
       <div className={styles.field}>
         <div className={styles.labelRow}>
