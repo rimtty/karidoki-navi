@@ -15,7 +15,7 @@ import type {
 
 const PILOT_REGION_CODES = ["34204-kui"] as const;
 const SETTINGS_ERROR =
-  "品種ルールを読み込めませんでした。通信状態を確認して再試行してください。";
+  "刈りどきの目安を読み込めませんでした。通信状態を確認してください。";
 const AUTH_ERROR =
   "ログイン状態を確認できませんでした。ログインし直して再試行してください。";
 

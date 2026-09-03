@@ -17,11 +17,12 @@ import type {
 type AccountRuleRow = Database["public"]["Tables"]["account_variety_rules"]["Row"];
 
 const SAVE_ERROR =
-  "品種ルールを保存できませんでした。入力内容を確認して再試行してください。";
+  "刈りどきの目安を保存できませんでした。入力内容を確認して再試行してください。";
 const DELETE_ERROR =
-  "品種ルールを削除できませんでした。通信状態を確認して再試行してください。";
+  "刈りどきの目安を削除できませんでした。通信状態を確認して再試行してください。";
 const AUTH_ERROR =
   "ログイン状態を確認できませんでした。ログインし直して再試行してください。";
+const PILOT_REGION_CODE = "34204-kui";
 
 function asNumber(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -49,11 +50,23 @@ function asRule(row: AccountRuleRow): AccountVarietyRule {
 
 function messageForRpcError(error: { code?: string; message?: string }, fallback: string): string {
   if (error.code === "42501") return AUTH_ERROR;
-  if (error.code === "23P01") return "同じ品種・地域で適用期間が重なっています。期間を見直してください。";
+  if (error.code === "23P01") return "この品種には、すでに刈りどきの目安があります。画面を更新してから変更してください。";
   if (error.code === "23514" || error.code === "22023") {
-    return "入力値が保存条件を満たしていません。温度・日付・根拠メモを確認してください。";
+    return "入力した積算気温と出どころを確認してください。";
   }
   return fallback;
+}
+
+function currentTokyoDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 async function currentAccountId(client: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
@@ -78,7 +91,7 @@ export async function saveVarietyRuleAction(input: {
     return {
       ok: false,
       source: "fixture",
-      message: "Supabase未接続の開発表示では、品種ルールを保存できません。",
+      message: "Supabase未接続の開発表示では、刈りどきの目安を保存できません。",
     };
   }
   if (!input || typeof input !== "object" || typeof input.varietyId !== "string") {
@@ -102,6 +115,37 @@ export async function saveVarietyRuleAction(input: {
     const client = await createClient();
     const accountId = await currentAccountId(client);
     if (!accountId) return { ok: false, source: "supabase", message: AUTH_ERROR };
+
+    let regionId: string | null;
+    let effectiveFrom: string;
+    let effectiveTo: string | null;
+
+    if (input.ruleId) {
+      const existingRules = await client.rpc("list_account_variety_rules", {
+        p_account_id: accountId,
+        p_variety_id: input.varietyId.trim(),
+      });
+      if (existingRules.error) throw existingRules.error;
+      const existing = ((existingRules.data ?? []) as AccountRuleRow[]).find(
+        (rule) => rule.id === input.ruleId?.trim(),
+      );
+      if (!existing) return { ok: false, source: "supabase", message: SAVE_ERROR };
+      regionId = existing.region_id;
+      effectiveFrom = existing.effective_from;
+      effectiveTo = existing.effective_to;
+    } else {
+      const pilotRegion = await client
+        .from("rule_regions")
+        .select("id")
+        .eq("code", PILOT_REGION_CODE)
+        .limit(1);
+      if (pilotRegion.error) throw pilotRegion.error;
+      if (!pilotRegion.data?.[0]) throw new Error("pilot region is not configured");
+      regionId = pilotRegion.data[0].id;
+      effectiveFrom = currentTokyoDate();
+      effectiveTo = null;
+    }
+
     const { data, error } = await client.rpc("save_account_variety_rule", {
       p_account_id: accountId,
       p_variety_id: input.varietyId.trim(),
@@ -110,10 +154,10 @@ export async function saveVarietyRuleAction(input: {
       p_harvest_end_temp_c: validation.value.endTempC,
       p_accumulation_start_offset_days: validation.value.accumulationOffsetDays,
       p_source_note: validation.value.sourceNote,
-      p_effective_from: validation.value.effectiveFrom,
+      p_effective_from: effectiveFrom,
       p_rule_id: input.ruleId?.trim() || null,
-      p_region_id: validation.value.regionId,
-      p_effective_to: validation.value.effectiveTo,
+      p_region_id: regionId,
+      p_effective_to: effectiveTo,
     });
     if (error || !data?.[0]) {
       return {
@@ -137,7 +181,7 @@ export async function deleteVarietyRuleAction(input: {
     return {
       ok: false,
       source: "fixture",
-      message: "Supabase未接続の開発表示では、品種ルールを削除できません。",
+      message: "Supabase未接続の開発表示では、刈りどきの目安を削除できません。",
     };
   }
   if (!input || typeof input.ruleId !== "string" || input.ruleId.trim() === "") {
