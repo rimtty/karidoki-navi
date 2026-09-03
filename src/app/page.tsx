@@ -1,3 +1,4 @@
+import Link from "next/link";
 import styles from "./page.module.css";
 
 const steps = [
@@ -29,21 +30,32 @@ export default function Home() {
           </span>
           <span>刈りどきナビ</span>
         </a>
-        <span className={styles.status}>MVP準備中</span>
+        <span className={styles.status}>MVP版</span>
       </header>
 
       <section className={styles.hero} id="top">
-        <div className={styles.eyebrow}>田んぼの積算気温・刈取適期マップ</div>
-        <h1>
-          次に刈る田んぼが、
-          <br />
-          <strong>3秒でわかる。</strong>
-        </h1>
-        <p className={styles.lead}>
-          出穂日を登録したら、あとは自動で積算。
-          <br />
-          毎朝、地図を見るだけで刈取適期を確認できます。
-        </p>
+        <div className={styles.heroCopy}>
+          <div className={styles.eyebrow}>田んぼの積算気温・刈取適期マップ</div>
+          <h1>
+            次に刈る田んぼが、
+            <br />
+            <strong>3秒でわかる。</strong>
+          </h1>
+          <p className={styles.lead}>
+            出穂日を登録したら、あとは自動で積算。
+            <br />
+            毎朝、地図を見るだけで刈取適期を確認できます。
+          </p>
+          <div className={styles.ctaGroup}>
+            <Link className={styles.primaryCta} href="/login">
+              <span>ログインして使う</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <p className={styles.ctaNote}>
+              メールアドレスまたはGoogleアカウントで始められます。
+            </p>
+          </div>
+        </div>
         <div className={styles.preview} aria-label="刈取状況の表示例">
           <div className={styles.previewHeader}>
             <div>
@@ -89,7 +101,7 @@ export default function Home() {
 
       <footer className={styles.footer}>
         <span>🌾 刈りどきナビ</span>
-        <span>現在、MVPを開発しています。</span>
+        <span>MVP版を公開中です。</span>
       </footer>
     </main>
   );
