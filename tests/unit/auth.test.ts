@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getSafeRedirectPath } from "../../src/lib/auth/redirect";
 import { getAuthErrorMessage } from "../../src/features/auth/auth-errors";
+import { summarizeAuthenticatedAccount } from "../../src/lib/auth/account";
 
 describe("auth redirect targets", () => {
   it("keeps same-site paths and their query string", () => {
@@ -13,6 +14,37 @@ describe("auth redirect targets", () => {
     expect(getSafeRedirectPath("https://example.com")).toBe("/app");
     expect(getSafeRedirectPath("//example.com")).toBe("/app");
     expect(getSafeRedirectPath("/\\\\example.com")).toBe("/app");
+  });
+});
+
+describe("authenticated account summary", () => {
+  it("detects a Google-authenticated account without an email identity", () => {
+    expect(
+      summarizeAuthenticatedAccount({
+        email: "farmer@example.com",
+        app_metadata: { provider: "google" },
+        identities: [{ provider: "google" }],
+      }),
+    ).toEqual({
+      email: "farmer@example.com",
+      currentProvider: "google",
+      hasGoogleIdentity: true,
+      hasEmailIdentity: false,
+    });
+  });
+
+  it("keeps email-only users distinct from Google users", () => {
+    expect(
+      summarizeAuthenticatedAccount({
+        email: "farmer@example.com",
+        app_metadata: { provider: "email" },
+        identities: [{ provider: "email" }],
+      }),
+    ).toMatchObject({
+      currentProvider: "email",
+      hasGoogleIdentity: false,
+      hasEmailIdentity: true,
+    });
   });
 });
 
