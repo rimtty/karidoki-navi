@@ -8,7 +8,6 @@ import {
   FIELD_FIXTURES,
   FIELD_STATUS_META,
   formatDate,
-  formatTemp,
   type FieldStatus,
 } from "./fixtures";
 import type { FieldSizeClass, FieldViewModel } from "./view-model";
@@ -35,36 +34,64 @@ function needsAttention(field: FieldViewModel): boolean {
   return ["ready", "overdue", "soon", "not-configured"].includes(field.status);
 }
 
-function actionMessage(field: FieldViewModel): string {
+const sizeClasses: Record<FieldSizeClass, string> = {
+  small: styles.sizeSmall,
+  medium: styles.sizeMedium,
+  large: styles.sizeLarge,
+};
+
+function progressMessage(field: FieldViewModel): string {
   if (field.status === "ready") return "今が刈りどきです";
-  if (field.status === "overdue") return "早めに確認してください";
+  if (field.status === "overdue") return "刈りどきを過ぎました";
   if (field.status === "soon") {
-    return field.referenceDays !== null ? `あと約${field.referenceDays}日` : "もうすぐ刈りどきです";
+    return field.remainingTempC !== null
+      ? `あと${Math.max(0, Math.round(field.remainingTempC))}℃`
+      : "もうすぐ刈りどき";
   }
-  if (field.status === "growing") return "順調に育っています";
-  if (field.status === "harvested") return "収穫済みです";
-  return field.headingDate ? "刈りどき設定を確認" : "出穂日を入力してください";
+  if (
+    field.status === "growing" &&
+    field.accumulatedTempC !== null &&
+    field.rule?.startTempC
+  ) {
+    const progress = Math.min(
+      99,
+      Math.max(0, Math.round((field.accumulatedTempC / field.rule.startTempC) * 100)),
+    );
+    return `${progress}%`;
+  }
+  if (field.status === "growing") return "育っています";
+  if (field.status === "harvested") return "収穫済み";
+  return field.headingDate ? "目安を設定" : "出穂日を入力";
+}
+
+function progressCaption(field: FieldViewModel): string {
+  if (field.status === "ready") return "稲と天気を確認してください";
+  if (field.status === "overdue") return "早めに田んぼを確認してください";
+  if (field.status === "soon") return "刈り始めの目安まで";
+  if (field.status === "growing") return "刈り始めまでの進み具合";
+  if (field.status === "harvested") return formatDate(field.harvestDate ?? null);
+  return field.headingDate ? "設定から目安を登録してください" : "田んぼの詳細から入力できます";
 }
 
 function FieldCard({ field }: { field: FieldViewModel }) {
   const meta = FIELD_STATUS_META[field.status];
   return (
-    <Link className={`${styles.fieldCard} ${styles[meta.tone]}`} href={`/app/fields/${field.id}`}>
+    <Link
+      className={`${styles.fieldCard} ${styles[meta.tone]} ${sizeClasses[field.sizeClass]}`}
+      href={`/app/fields/${field.id}`}
+    >
       <div className={styles.cardTopline}>
         <span className={styles.statusLabel}>{meta.label}</span>
-        <span className={styles.sizeLabel}>大きさ {sizeLabels[field.sizeClass]}</span>
+        <span className={styles.sizeLabel}>{sizeLabels[field.sizeClass]}</span>
       </div>
       <div className={styles.cardMain}>
-        <div>
-          <h2>{field.name}</h2>
-          <p>{field.variety ?? "品種未設定"}</p>
-        </div>
-        <span className={styles.arrow} aria-hidden="true">›</span>
+        <h2>{field.name}</h2>
+        <strong className={styles.progress}>{progressMessage(field)}</strong>
+        <p className={styles.progressCaption}>{progressCaption(field)}</p>
       </div>
-      <strong className={styles.actionMessage}>{actionMessage(field)}</strong>
       <div className={styles.cardFacts}>
-        <span>出穂日 {formatDate(field.headingDate)}</span>
-        <span>積算 {formatTemp(field.accumulatedTempC)}</span>
+        <span>{field.variety ?? "品種未設定"}</span>
+        <span>出穂 {formatDate(field.headingDate)}</span>
       </div>
       {field.dataQuality !== "complete" && field.status !== "not-configured" && (
         <p className={styles.dataNotice}>
@@ -147,7 +174,11 @@ export function HomeMapView({
           <h2>刈る順に表示</h2>
           <span>{fields.length}件</span>
         </div>
-        {fields.length > 0 ? fields.map((field) => <FieldCard field={field} key={field.id} />) : (
+        {fields.length > 0 ? (
+          <div className={styles.fieldGrid}>
+            {fields.map((field) => <FieldCard field={field} key={field.id} />)}
+          </div>
+        ) : (
           <div className={styles.emptyState}>
             <span aria-hidden="true">🌾</span>
             <strong>表示する田んぼがありません</strong>

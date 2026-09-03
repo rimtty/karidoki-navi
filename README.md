@@ -27,7 +27,7 @@
 | `/app/fields` | `/app`へ移動し、同じ田んぼ一覧を表示 |
 | `/app/fields/new/1` ～ `/3` | 名前・大きさ・品種・作付け日・出穂日を1画面で登録 |
 | `/app/fields/[fieldId]` | 田んぼ詳細、登録日、積算値、収穫登録 |
-| `/app/settings/variety-rules` | アカウント所有の品種別カスタムルールの登録・編集・削除 |
+| `/app/settings/variety-rules` | 品種別の「刈り始め・刈り終わり」の目安を大きな文字で登録・変更・削除 |
 
 田んぼ登録は `register_simple_field_with_season` RPCへ1トランザクションで送信します。`account_id` はブラウザから送らず、認証セッションからDBが決定します。同じ冪等キーで再試行しても同じ登録結果を返し、二重タップもクライアント側で抑止します。一覧・詳細は `get_field_overview` / `get_field_detail_simple` RPCをDB行から画面用モデルへ変換して表示します。RLSとowner-scoped RPCの両方で、認証ユーザー自身のデータだけを扱います。
 

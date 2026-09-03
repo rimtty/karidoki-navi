@@ -164,6 +164,46 @@ test("PWA の manifest・Service Worker・オフライン表示を確認する",
   await expect(page.getByText("オフライン：保存済みの画面を表示中")).toHaveCount(0);
 });
 
+test("刈りどき設定は農家向けの3項目だけを大きく表示する", async ({ page }) => {
+  await login(page);
+  await page.goto("/app/settings/variety-rules");
+
+  await expect(page.getByRole("heading", { name: "刈りどきの目安" })).toBeVisible();
+  await expect(page.getByText("数字が分からないときは、入力しなくて大丈夫です")).toBeVisible();
+
+  const koshihikari = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "コシヒカリ" }) });
+  await koshihikari.getByRole("button", { name: "この品種の目安を登録する" }).click();
+
+  await expect(koshihikari.getByLabel("刈り始めの積算気温")).toBeVisible();
+  await expect(koshihikari.getByLabel("刈り終わりの積算気温")).toBeVisible();
+  await expect(koshihikari.getByLabel("この目安の出どころ")).toBeVisible();
+  await expect(koshihikari.getByText("出穂日当日")).toBeVisible();
+  await expect(koshihikari.getByText("三原市久井町")).toBeVisible();
+  await expect(koshihikari.locator('input[type="number"]')).toHaveCount(2);
+  await expect(koshihikari.locator('input[type="date"]')).toHaveCount(0);
+  await expect(koshihikari.locator("select")).toHaveCount(0);
+  await expect(koshihikari.getByText(/offset/i)).toHaveCount(0);
+
+  const startBox = await koshihikari.getByLabel("刈り始めの積算気温").boundingBox();
+  const saveBox = await koshihikari.getByRole("button", { name: "この目安を保存する" }).boundingBox();
+  expect(startBox?.height ?? 0).toBeGreaterThanOrEqual(60);
+  expect(saveBox?.height ?? 0).toBeGreaterThanOrEqual(52);
+
+  await koshihikari.getByLabel("刈り始めの積算気温").fill("900");
+  await koshihikari.getByLabel("刈り終わりの積算気温").fill("1100");
+  await koshihikari.getByLabel("この目安の出どころ").fill("E2E用の作業ノート");
+  await koshihikari.getByRole("button", { name: "この目安を保存する" }).click();
+  await expect(page.getByRole("status")).toContainText("刈りどきの目安を保存しました");
+  await expect(koshihikari.getByText("900℃・日")).toBeVisible();
+  await expect(koshihikari.getByText("1,100℃・日")).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await koshihikari.getByRole("button", { name: "削除する" }).click();
+  await expect(page.getByRole("status")).toContainText("刈りどきの目安を削除しました");
+});
+
 test("メールログインから田んぼ登録・詳細・収穫・ログアウトまで通る", async ({ page }) => {
   await login(page);
   await expect(page.getByRole("heading", { name: "今日の田んぼ" })).toBeVisible();
@@ -210,7 +250,11 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await page.getByRole("link", { name: "刈りどきナビ 田んぼ一覧へ" }).click();
   await expect(page).toHaveURL(/\/app$/);
   await expect(page.getByRole("heading", { name: "E2E久井テスト田んぼ" })).toBeVisible();
-  await page.getByRole("link", { name: /E2E久井テスト田んぼ/ }).click();
+  const fieldTile = page.getByRole("link", { name: /E2E久井テスト田んぼ/ });
+  const tileBox = await fieldTile.boundingBox();
+  expect(tileBox?.height ?? 0).toBeGreaterThanOrEqual(230);
+  expect((tileBox?.width ?? 999) / (tileBox?.height ?? 1)).toBeLessThan(1.6);
+  await fieldTile.click();
   await expect(page.getByText("この田んぼは収穫済みです。", { exact: true })).toBeVisible();
 
   await page.locator('summary[aria-label="アカウントメニュー"]').click();
