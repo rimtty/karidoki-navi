@@ -24,6 +24,61 @@ async function blockRemoteMapAssets(page: Page) {
   await page.route("https://demotiles.maplibre.org/**", (route: Route) => route.abort());
 }
 
+type MailpitSummary = {
+  messages?: Array<{
+    ID?: unknown;
+    To?: Array<{ Address?: unknown }>;
+  }>;
+};
+
+type MailpitMessage = {
+  HTML?: unknown;
+  Text?: unknown;
+};
+
+async function recoveryLinkFromMailpit(email: string): Promise<string> {
+  const mailpitUrl = process.env.E2E_MAILPIT_URL;
+  if (!mailpitUrl) {
+    throw new Error("E2E用Mailpit URLが準備されていません。");
+  }
+
+  let messageId = "";
+  await expect
+    .poll(
+      async () => {
+        const response = await fetch(`${mailpitUrl}/api/v1/messages`);
+        if (!response.ok) return "";
+        const body = (await response.json()) as MailpitSummary;
+        const message = body.messages?.find((candidate) =>
+          candidate.To?.some((recipient) => recipient.Address === email),
+        );
+        messageId = typeof message?.ID === "string" ? message.ID : "";
+        return messageId;
+      },
+      { timeout: 15_000 },
+    )
+    .not.toBe("");
+
+  const response = await fetch(
+    `${mailpitUrl}/api/v1/message/${encodeURIComponent(messageId)}`,
+  );
+  if (!response.ok) {
+    throw new Error(`再設定メールを取得できませんでした (HTTP ${response.status})。`);
+  }
+  const body = (await response.json()) as MailpitMessage;
+  const content =
+    typeof body.HTML === "string"
+      ? body.HTML
+      : typeof body.Text === "string"
+        ? body.Text
+        : "";
+  const match = content.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]*/);
+  if (!match) {
+    throw new Error("再設定メール内の確認リンクを取得できませんでした。");
+  }
+  return match[0].replaceAll("&amp;", "&");
+}
+
 test("ランディングからMVP版のログイン導線を表示する", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -186,4 +241,40 @@ test("メールログインから圃場登録・一覧・詳細・収穫・ロ�
   await page.getByRole("button", { name: "ログアウト" }).click();
   await expect(page).toHaveURL(/\/login(?:\?|$)/);
   await expect(page.getByRole("button", { name: "メールアドレスでログイン" })).toBeVisible();
+});
+
+test("再設定メールからパスワードを更新して再ログインできる", async ({ page }) => {
+  const email = process.env.E2E_TEST_EMAIL;
+  if (!email) {
+    throw new Error("E2E専用メールアドレスが準備されていません。");
+  }
+  const newPassword = "E2e-Recovered-Password-2026!";
+
+  await page.goto("/login");
+  await page.getByRole("link", { name: "パスワードを忘れた方" }).click();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await page.getByLabel("メールアドレス").fill(email);
+  await page.getByRole("button", { name: "再設定メールを送る" }).click();
+  await expect(page.getByRole("status")).toContainText("登録済みのメールアドレスであれば");
+
+  const recoveryLink = await recoveryLinkFromMailpit(email);
+  await page.goto(recoveryLink);
+  await expect(page).toHaveURL(/\/reset-password$/);
+
+  await page.getByLabel("新しいパスワード", { exact: true }).fill(newPassword);
+  await page.getByLabel("新しいパスワード（確認）").fill(`${newPassword}-mismatch`);
+  await page.getByRole("button", { name: "パスワードを更新" }).click();
+  await expect(page.locator('p[role="alert"]')).toContainText(
+    "確認用パスワードが一致しません",
+  );
+
+  await page.getByLabel("新しいパスワード（確認）").fill(newPassword);
+  await page.getByRole("button", { name: "パスワードを更新" }).click();
+  await expect(page).toHaveURL(/\/login\?message=password_updated/);
+  await expect(page.getByRole("status")).toContainText("パスワードを更新しました");
+
+  await page.getByLabel("メールアドレス").fill(email);
+  await page.getByLabel("パスワード").fill(newPassword);
+  await page.getByRole("button", { name: "メールアドレスでログイン" }).click();
+  await expect(page).toHaveURL(/\/app(?:\?|$)/);
 });

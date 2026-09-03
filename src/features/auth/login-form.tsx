@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   type FormEvent,
@@ -279,6 +280,11 @@ export function LoginForm({
               ? "メールアドレスでログイン"
               : "メールアドレスで新規登録"}
         </button>
+        {mode === "login" && (
+          <Link className={styles.forgotLink} href="/forgot-password">
+            パスワードを忘れた方
+          </Link>
+        )}
       </form>
     </div>
   );

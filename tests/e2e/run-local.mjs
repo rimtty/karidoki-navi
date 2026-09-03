@@ -23,7 +23,10 @@ function localSupabaseEnvironment() {
   const apiUrl = parseStatusValue(result.stdout, "API_URL");
   const anonKey = parseStatusValue(result.stdout, "ANON_KEY");
   const serviceRoleKey = parseStatusValue(result.stdout, "SERVICE_ROLE_KEY");
-  if (!apiUrl || !anonKey || !serviceRoleKey) {
+  const mailpitUrl =
+    parseStatusValue(result.stdout, "MAILPIT_URL") ??
+    parseStatusValue(result.stdout, "INBUCKET_URL");
+  if (!apiUrl || !anonKey || !serviceRoleKey || !mailpitUrl) {
     throw new Error("ローカルSupabaseの接続情報が不足しています。状態を確認して再試行してください。");
   }
 
@@ -33,6 +36,7 @@ function localSupabaseEnvironment() {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? anonKey,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? serviceRoleKey,
+    E2E_MAILPIT_URL: process.env.E2E_MAILPIT_URL ?? mailpitUrl,
   };
 }
 

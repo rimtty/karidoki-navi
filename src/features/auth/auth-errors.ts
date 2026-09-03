@@ -1,4 +1,11 @@
-export type AuthAction = "login" | "signup" | "oauth" | "callback" | "logout";
+export type AuthAction =
+  | "login"
+  | "signup"
+  | "oauth"
+  | "callback"
+  | "logout"
+  | "recovery_request"
+  | "password_update";
 
 type AuthErrorLike = {
   code?: string | null;
@@ -17,6 +24,9 @@ const COMMON_MESSAGES: Record<string, string> = {
   provider_disabled:
     "Googleログインは現在利用できません。メールアドレスでお試しください。",
   signup_disabled: "現在、新規登録を受け付けていません。",
+  same_password: "現在とは異なるパスワードを設定してください。",
+  session_not_found:
+    "再設定用の認証情報を確認できません。再設定メールをもう一度送信してください。",
   weak_password: "パスワードが安全ではありません。6文字以上で設定してください。",
   user_already_exists:
     "このメールアドレスはすでに登録されています。ログインしてください。",
@@ -38,6 +48,9 @@ const MESSAGE_HINTS: Array<[string, string]> = [
   ["user already registered", COMMON_MESSAGES.user_already_exists],
   ["password should be at least", COMMON_MESSAGES.weak_password],
   ["password is too weak", COMMON_MESSAGES.weak_password],
+  ["new password should be different", COMMON_MESSAGES.same_password],
+  ["auth session missing", COMMON_MESSAGES.session_not_found],
+  ["session not found", COMMON_MESSAGES.session_not_found],
   ["provider is not enabled", COMMON_MESSAGES.provider_disabled],
   ["provider is disabled", COMMON_MESSAGES.provider_disabled],
   ["redirect url is not allowed", COMMON_MESSAGES.bad_oauth_callback],
@@ -53,6 +66,10 @@ const FALLBACK_MESSAGES: Record<AuthAction, string> = {
     "Googleログインを開始できませんでした。メールアドレスでのログインもお試しください。",
   callback: "認証を完了できませんでした。もう一度ログインをお試しください。",
   logout: "ログアウトできませんでした。もう一度お試しください。",
+  recovery_request:
+    "再設定メールを送信できませんでした。しばらく待ってからもう一度お試しください。",
+  password_update:
+    "パスワードを更新できませんでした。再設定メールをもう一度送信してください。",
 };
 
 export function getAuthErrorMessage(

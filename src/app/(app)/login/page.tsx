@@ -26,7 +26,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       initialMessage={
         messageCode === "email_confirmed"
           ? "メールアドレスを確認しました。ログインを続けます。"
-          : null
+          : messageCode === "password_updated"
+            ? "パスワードを更新しました。新しいパスワードでログインしてください。"
+            : null
       }
     />
   );
