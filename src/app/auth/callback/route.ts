@@ -12,16 +12,17 @@ type PendingCookie = {
 };
 
 function redirectToLogin(
-  requestUrl: URL,
   errorCode: string,
   nextPath?: string,
 ) {
-  const loginUrl = new URL("/login", requestUrl.origin);
-  loginUrl.searchParams.set("error", errorCode);
+  const params = new URLSearchParams({ error: errorCode });
   if (nextPath) {
-    loginUrl.searchParams.set("next", getSafeRedirectPath(nextPath));
+    params.set("next", getSafeRedirectPath(nextPath));
   }
-  return NextResponse.redirect(loginUrl);
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: `/login?${params.toString()}` },
+  });
 }
 
 /** Exchange the PKCE code returned by Supabase OAuth/email confirmation. */
@@ -32,10 +33,10 @@ export async function GET(request: Request) {
   const config = getSupabasePublicConfig();
 
   if (!config) {
-    return redirectToLogin(requestUrl, "missing_config", nextPath);
+    return redirectToLogin("missing_config", nextPath);
   }
   if (!code) {
-    return redirectToLogin(requestUrl, "missing_code", nextPath);
+    return redirectToLogin("missing_code", nextPath);
   }
 
   const cookieStore = await cookies();
@@ -56,15 +57,18 @@ export async function GET(request: Request) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return redirectToLogin(
-      requestUrl,
       error.code ?? "callback_failed",
       nextPath,
     );
   }
 
-  const response = NextResponse.redirect(
-    new URL(nextPath, requestUrl.origin),
-  );
+  // A relative Location preserves the browser-visible origin through local
+  // dev servers and reverse proxies. Rebuilding the origin from Request.url
+  // can switch 127.0.0.1 to localhost and strand host-only auth cookies.
+  const response = new NextResponse(null, {
+    status: 307,
+    headers: { Location: nextPath },
+  });
   pendingCookies.forEach(({ name, value, options }) => {
     response.cookies.set(name, value, options);
   });

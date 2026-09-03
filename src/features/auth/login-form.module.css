@@ -157,3 +157,15 @@
 .submitButton:focus-visible {
   background: #244a21;
 }
+
+.forgotLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  color: #4c7446;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

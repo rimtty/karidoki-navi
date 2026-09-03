@@ -21,6 +21,8 @@
 | パス | 画面 |
 | --- | --- |
 | `/login` | メールアドレス＋パスワード、またはGoogleを選ぶログイン画面。メールでの新規登録も含む |
+| `/forgot-password` | 登録済みメールアドレスへパスワード再設定メールを送る画面 |
+| `/reset-password` | 再設定メールの認証後に新しいパスワードを登録する画面 |
 | `/app` | 今日の刈りどき地図。状態チップ、圃場ポリゴン、積算値、気象地点、反映日を表示 |
 | `/app/fields` | 刈取時期が近い順に確認できる田んぼ一覧 |
 | `/app/fields/new/1` ～ `/3` | 筆ポリゴン選択または手描き、名前・品種・出穂日、確認の3段階登録 |
@@ -31,7 +33,7 @@
 
 ## 認証とフォールバック
 
-認証にはSupabase Authを使います。メールアドレス＋パスワードとGoogleログインを選択でき、ログイン後のセッションはSSR用Cookieで維持します。Google OAuthのプロバイダー登録、承認済みリダイレクトURL、メール確認・パスワード再設定用SMTPはSupabase側の外部設定が必要です。手順と本番前の未完了事項は [リリース運用手順](docs/release-runbook.md) にまとめています。
+認証にはSupabase Authを使います。メールアドレス＋パスワードとGoogleログインを選択でき、ログイン後のセッションはSSR用Cookieで維持します。メール確認とパスワード再設定は、同一サイトのPKCE callbackでセッションを確立してから処理します。本番のGoogle OAuthとAmazon SES SMTPは外部設定し、SESの本番利用承認と実配送を受入ゲートとして管理します。手順と未完了事項は [リリース運用手順](docs/release-runbook.md) にまとめています。
 
 Supabaseの公開設定がないローカル開発時だけ、明示的な開発用fixtureで画面を確認できます。非本番での接続失敗も開発用表示に限定され、本番環境に有効なSupabase設定がある場合はfixtureへ切り替えず、日本語のエラーと再試行導線を表示します。fixtureの圃場や気温を実際の収穫判断に使わないでください。
 
@@ -115,7 +117,7 @@ pnpm e2e:local
 pnpm start
 ```
 
-`e2e:local`は先に `pnpm exec supabase start` を実行し、ローカルSupabaseだけを使います。Pixel 7相当のモバイルChromeで、未認証リダイレクト、メールログイン、3段階登録、一覧・詳細、収穫登録、ログアウト、公式ルール未設定表示を確認します。専用ユーザーとテスト結果の扱いは [モバイルE2E README](tests/e2e/README.md) を参照してください。
+`e2e:local`は先に `pnpm exec supabase start` を実行し、ローカルSupabaseだけを使います。Pixel 7相当のモバイルChromeで、未認証リダイレクト、メールログイン、3段階登録、一覧・詳細、収穫登録、ログアウト、公式ルール未設定表示に加え、ローカル受信箱の再設定メールから新パスワードで再ログインするまでを確認します。専用ユーザーとテスト結果の扱いは [モバイルE2E README](tests/e2e/README.md) を参照してください。
 
 MAFFの取得・検査・抽出はデータ作業用コマンドです。原本は一時ディレクトリへ出力してください。
 
@@ -135,7 +137,7 @@ iPhone SafariとAndroid Chromeの実機受入、ホーム画面インストー�
 
 本番リリースは [docs/release-runbook.md](docs/release-runbook.md) の順序（DB、Edge Function、bounded smoke、Vault/Cron、MAFF、Vercel、Auth callback、監視／rollback）で実施します。本番外部状態はこのリポジトリのテストから変更しません。
 
-本番前に、Supabase側のGoogle OAuthクライアント・リダイレクト設定と、確認メール／パスワード再設定用の本番SMTPを管理者が準備する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
+Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTPはSupabaseへ設定済みです。SESの本番利用承認と実メール配送は管理者が確認する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
 
 リポジトリ内の合否と本番外部ゲートを分けた監査表は [リリース準備監査](docs/release-readiness.md) を参照してください。
 

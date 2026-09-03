@@ -34,4 +34,16 @@ describe("auth error messages", () => {
     expect(message).not.toContain("token=secret");
     expect(message).toContain("Googleログイン");
   });
+
+  it("returns safe Japanese messages for password recovery", () => {
+    expect(
+      getAuthErrorMessage({ code: "session_not_found" }, "password_update"),
+    ).toContain("再設定メール");
+    expect(
+      getAuthErrorMessage(
+        { message: "internal smtp detail: password=secret" },
+        "recovery_request",
+      ),
+    ).not.toContain("password=secret");
+  });
 });
