@@ -20,6 +20,8 @@
 -- 安全側デフォルトは28日。correctionDaysはこの保持期間を超えると400になるため、下記の
 -- 週次訂正値もデフォルト28日に合わせている。保持期間を変更する場合は、Function設定・
 -- smoke・この値を同じ承認記録で更新する。
+-- pg_netの既定timeout (5秒) はJMA取得に短すぎるため、各http_postでFunctionの上限に
+-- 合わせた120秒を明示する。
 -- Vault APIの詳細はプロジェクトのSupabaseバージョンに合わせて確認する。
 
 -- create extension if not exists pg_cron with schema extensions;
@@ -58,7 +60,8 @@
 --         where name = 'karidoki_navi_update_weather_secret'
 --       )
 --     ),
---     body := '{}'::jsonb
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 120000
 --   );
 --   $$
 -- );
@@ -81,7 +84,8 @@
 --         where name = 'karidoki_navi_update_weather_secret'
 --       )
 --     ),
---     body := '{"retryOnly":true}'::jsonb
+--     body := '{"retryOnly":true}'::jsonb,
+--     timeout_milliseconds := 120000
 --   );
 --   $$
 -- );
@@ -104,7 +108,8 @@
 --         where name = 'karidoki_navi_update_weather_secret'
 --       )
 --     ),
---     body := '{"correctionDays":28}'::jsonb
+--     body := '{"correctionDays":28}'::jsonb,
+--     timeout_milliseconds := 120000
 --   );
 --   $$
 -- );
