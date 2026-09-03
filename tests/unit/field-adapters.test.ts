@@ -128,6 +128,29 @@ describe("field RPC adapters", () => {
     expect(field.harvestAccumulatedTempC).toBe(1100);
   });
 
+  it("keeps a configured future-heading season distinct from an unset season", () => {
+    const [field] = adaptFieldOverviewRows([{
+      field_id: "field-future",
+      field_name: "上の田んぼ",
+      field_size_class: "SMALL",
+      season_id: "season-future",
+      season_year: 2026,
+      variety_id: "variety-1",
+      variety_name: "コシヒカリ",
+      planting_date: "2026-05-20",
+      heading_date: "2026-09-30",
+      harvest_date: null,
+      accumulated_temp_c: "0",
+      maturity_status: "BEFORE_HEADING",
+      data_status: "PENDING",
+      accumulated_through: null,
+      missing_day_count: 0,
+      estimated_days_to_start: null,
+    }]);
+
+    expect(field.status).toBe("before-heading");
+  });
+
   it("rejects malformed geometry instead of silently returning a fixture", () => {
     expect(() =>
       adaptFieldMapRow({

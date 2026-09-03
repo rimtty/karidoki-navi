@@ -219,6 +219,13 @@
     0 10px 24px rgba(42, 93, 33, 0.14);
 }
 
+.fieldCard.beforeHeading {
+  background: #c9dfb9;
+  box-shadow:
+    0 0 0 2px #a9c596,
+    0 10px 24px rgba(49, 88, 42, 0.12);
+}
+
 .fieldCard.overdue {
   background: #e9a08d;
   box-shadow:

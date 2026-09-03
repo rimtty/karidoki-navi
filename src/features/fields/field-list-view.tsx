@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   FIELD_FIXTURES,
   FIELD_STATUS_META,
+  formatDate,
   formatTemp,
 } from "./fixtures";
 import type { FieldSizeClass, FieldStatus, FieldViewModel } from "./view-model";
@@ -18,14 +19,16 @@ const sortOrder: Record<FieldStatus, number> = {
   soon: 1,
   overdue: 2,
   growing: 3,
-  "not-configured": 4,
-  harvested: 5,
+  "before-heading": 4,
+  "not-configured": 5,
+  harvested: 6,
 };
 
 const filterOptions: Array<{ value: "all" | FieldStatus; label: string }> = [
   { value: "all", label: "すべて" },
   { value: "ready", label: "刈取適期" },
   { value: "soon", label: "接近" },
+  { value: "before-heading", label: "出穂前" },
   { value: "not-configured", label: "未設定" },
 ];
 
@@ -94,15 +97,17 @@ export function FieldListView({
             </div>
             <div className={styles.cardMetrics}>
               <div>
-                <span>積算気温</span>
-                <strong>{formatTemp(field.accumulatedTempC)}</strong>
+                <span>{field.status === "before-heading" ? "出穂日" : "積算気温"}</span>
+                <strong>{field.status === "before-heading" ? formatDate(field.headingDate) : formatTemp(field.accumulatedTempC)}</strong>
               </div>
               <div>
-                <span>{field.remainingTempC !== null && field.remainingTempC < 0 ? "適期超過" : "適期まで"}</span>
+                <span>{field.status === "before-heading" ? "気温の計算" : field.remainingTempC !== null && field.remainingTempC < 0 ? "適期超過" : "適期まで"}</span>
                 <strong className={field.status === "ready" || field.status === "overdue" ? styles.accentMetric : ""}>
-                  {field.remainingTempC !== null && field.remainingTempC < 0
-                    ? `${formatTemp(Math.abs(field.remainingTempC))}超過`
-                    : formatTemp(field.remainingTempC)}
+                  {field.status === "before-heading"
+                    ? "出穂日から"
+                    : field.remainingTempC !== null && field.remainingTempC < 0
+                      ? `${formatTemp(Math.abs(field.remainingTempC))}超過`
+                      : formatTemp(field.remainingTempC)}
                 </strong>
               </div>
               <div>
@@ -110,12 +115,14 @@ export function FieldListView({
                 <strong>{sizeLabels[field.sizeClass]}</strong>
               </div>
             </div>
-            <QualityNotice
-              quality={field.dataQuality}
-              observedThrough={field.observedThrough}
-              missingDays={field.missingDays}
-              compact
-            />
+            {field.status !== "before-heading" && (
+              <QualityNotice
+                quality={field.dataQuality}
+                observedThrough={field.observedThrough}
+                missingDays={field.missingDays}
+                compact
+              />
+            )}
             <div className={styles.cardFooter}>
               <span>{FIELD_STATUS_META[field.status].label}の田んぼ</span>
               <span className={styles.arrow} aria-hidden="true">
