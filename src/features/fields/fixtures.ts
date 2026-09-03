@@ -67,7 +67,7 @@ export const FIELD_STATUS_META: Record<
 > = {
   ready: { label: "刈りどき", shortLabel: "刈りどき", tone: "ready", glyph: "●" },
   soon: { label: "もうすぐ", shortLabel: "もうすぐ", tone: "soon", glyph: "◐" },
-  growing: { label: "登熟中", shortLabel: "登熟中", tone: "growing", glyph: "○" },
+  growing: { label: "刈りどき前", shortLabel: "刈りどき前", tone: "growing", glyph: "○" },
   overdue: { label: "刈り遅れ", shortLabel: "刈り遅れ", tone: "overdue", glyph: "!" },
   "not-configured": {
     label: "未設定",

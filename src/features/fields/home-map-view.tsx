@@ -159,7 +159,7 @@ export function HomeMapView({
         {([
           ["all", "すべて", initialFields.length],
           ["attention", "要確認", attentionCount],
-          ["growing", "登熟中", initialFields.filter((field) => field.status === "growing").length],
+          ["growing", "刈りどき前", initialFields.filter((field) => field.status === "growing").length],
           ["harvested", "収穫済", initialFields.filter((field) => field.status === "harvested").length],
         ] as const).map(([value, label, count]) => (
           <button key={value} type="button" aria-pressed={filter === value}

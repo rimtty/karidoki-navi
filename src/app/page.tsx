@@ -75,7 +75,7 @@ export default function Home() {
             </div>
             <div className={`${styles.field} ${styles.growing}`}>
               <strong>南田</strong>
-              <span>順調に登熟中</span>
+              <span>お米が育っています</span>
             </div>
           </div>
         </div>
