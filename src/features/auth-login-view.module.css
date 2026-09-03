@@ -1,0 +1,243 @@
+.page {
+  min-height: 100svh;
+  padding: 28px 16px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(183, 211, 157, 0.45), transparent 30%),
+    radial-gradient(circle at 90% 82%, rgba(230, 192, 69, 0.16), transparent 26%),
+    #f0f4e9;
+}
+
+.card {
+  width: min(100%, 420px);
+  padding: 27px 21px 24px;
+  display: grid;
+  gap: 18px;
+  border: 1px solid #d0dccb;
+  border-radius: 22px;
+  background: rgba(252, 253, 249, 0.96);
+  box-shadow: 0 18px 50px rgba(50, 79, 45, 0.1);
+}
+
+.brand {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-self: start;
+  gap: 9px;
+  color: #203b1d;
+  font-size: 0.9rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.brandMark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e0ecd6;
+}
+
+.heading {
+  display: grid;
+  gap: 7px;
+}
+
+.eyebrow {
+  color: #5d7b56;
+  font-size: 0.63rem;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+}
+
+.heading h1 {
+  color: #20391e;
+  font-size: 1.8rem;
+  letter-spacing: -0.05em;
+}
+
+.heading p:last-child {
+  color: #748171;
+  font-size: 0.73rem;
+  line-height: 1.6;
+}
+
+.devNotice,
+.message {
+  padding: 10px 11px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid #c7d9bd;
+  border-radius: 11px;
+  color: #486944;
+  background: #f0f8ec;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.devNotice > span,
+.message > span {
+  display: grid;
+  min-width: 25px;
+  height: 20px;
+  place-items: center;
+  border-radius: 5px;
+  color: #fff;
+  background: #60865a;
+  font-size: 0.55rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.message {
+  align-items: center;
+  border-color: #d4c177;
+  color: #70560f;
+  background: #fffaf0;
+}
+
+.message > span {
+  min-width: 20px;
+  width: 20px;
+  border-radius: 50%;
+  color: #806319;
+  background: #f3dfa0;
+  font-size: 0.7rem;
+}
+
+.devNotice p,
+.message p {
+  margin: 0;
+}
+
+.googleButton,
+.submitButton {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 10px;
+  font-size: 0.76rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.googleButton {
+  border: 1px solid #bbc9b7;
+  color: #2e422d;
+  background: #fff;
+}
+
+.googleButton:hover,
+.googleButton:focus-visible {
+  border-color: #7f9e78;
+  background: #f4f9f1;
+}
+
+.googleGlyph {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid #d7dfd4;
+  border-radius: 50%;
+  color: #43825a;
+  font-family: Arial, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #879285;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.divider::before,
+.divider::after {
+  height: 1px;
+  flex: 1;
+  background: #dde4d9;
+  content: "";
+}
+
+.form {
+  display: grid;
+  gap: 13px;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+  color: #50644d;
+  font-size: 0.71rem;
+  font-weight: 800;
+}
+
+.form input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 11px;
+  border: 1px solid #c7d4c2;
+  border-radius: 9px;
+  color: #30462d;
+  background: #fff;
+  font-size: 0.77rem;
+}
+
+.form input::placeholder {
+  color: #a8b1a4;
+}
+
+.submitButton {
+  margin-top: 3px;
+  border: 1px solid #315c2b;
+  color: #fff;
+  background: #315c2b;
+}
+
+.submitButton:hover,
+.submitButton:focus-visible {
+  background: #244a21;
+}
+
+.accountPrompt,
+.backLink {
+  color: #778475;
+  font-size: 0.66rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.accountPrompt a,
+.backLink a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: #4c7446;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.backLink {
+  margin-top: 15px;
+}
+
+@media (max-width: 360px) {
+  .card {
+    padding: 23px 16px 20px;
+  }
+}

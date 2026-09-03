@@ -7,6 +7,8 @@ out/
 dist/
 build/
 coverage/
+test-results/
+playwright-report/
 *.tsbuildinfo
 
 # Local environment and secrets
@@ -25,6 +27,10 @@ data/raw/
 data/generated/
 *.fgb
 *.mbtiles
+*.ndjson
+*.audit.json
+maff-import-audit.json
+maff-schema.json
 
 # Logs
 *.log

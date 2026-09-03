@@ -370,6 +370,12 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.update-weather]
+# update-weather authenticates with its own Vault-managed secret in the
+# Authorization header. Deploying with JWT verification enabled would reject
+# that custom Bearer value at the Supabase gateway before the function runs.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

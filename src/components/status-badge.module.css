@@ -1,0 +1,99 @@
+.badge,
+.qualityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.glyph {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.ready {
+  color: #42320b;
+  background: #f4cf58;
+  border-color: #c59a1d;
+}
+
+.soon {
+  color: #4b3a08;
+  background: #f4e39b;
+  border-color: #c9aa40;
+}
+
+.growing {
+  color: #16411f;
+  background: #d4ebc8;
+  border-color: #8bb578;
+}
+
+.overdue {
+  color: #6d241f;
+  background: #f8d7cd;
+  border-color: #d17d6d;
+}
+
+.notConfigured {
+  color: #465045;
+  background: #e9ece5;
+  border-color: #b9c1b6;
+}
+
+.harvested {
+  color: #3c4d43;
+  background: #dce6e0;
+  border-color: #a9bcb0;
+}
+
+.qualityBadge {
+  min-height: 24px;
+  padding: 4px 8px;
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.qualityDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pending {
+  color: #53634d;
+  background: #edf0e9;
+  border-color: #cbd3c5;
+}
+
+.complete {
+  color: #21623c;
+  background: #e0f0df;
+  border-color: #a8cfad;
+}
+
+.incomplete,
+.stale {
+  color: #725306;
+  background: #fff1c9;
+  border-color: #e0bd54;
+}
+
+.error {
+  color: #8b2f26;
+  background: #fbe1da;
+  border-color: #dc9587;
+}

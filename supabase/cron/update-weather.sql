@@ -1,0 +1,119 @@
+-- 刈りどきナビ: update-weather の Supabase Cron 設定テンプレート
+--
+-- このファイルは migration ではありません。承認前に実行しないでください。
+-- 本番で有効化する場合だけ、Dashboard SQL Editorで次の順に実施します。
+--
+-- 1. Vaultへ、値を直接Gitへ書かずに次の2つのsecretを登録する。
+--      karidoki_navi_project_url
+--      karidoki_navi_update_weather_secret
+--    2つ目はEdge Functionの UPDATE_WEATHER_CRON_SECRET と同じランダム値にする。
+-- 2. update-weather Functionを次のとおりデプロイし、Function secretにも同じ値を登録する。
+--      supabase functions deploy update-weather --no-verify-jwt
+--    カスタムBearerはGatewayのJWTではないため、verify_jwt=falseをこのFunctionだけに設定する。
+--    リポジトリのsupabase/config.tomlにも同じ設定を記録している。
+-- 3. 下記のコメントを確認してから、各 cron.schedule を個別に実行する。
+--
+-- pg_cronはUTCで実行する。06:30 JST = 21:30 UTC (前日)、12:30 JST = 03:30 UTC、
+-- 週次訂正は月曜07:00 JST = 日曜22:00 UTCとしている。
+-- 通常run (body := '{}') はseasonなし地点をJST前日1日だけ取得し、seasonあり地点の
+-- 暗黙バックフィルはJMA_WEATHER_RETENTION_DAYS以内へFunction側で限定する。未設定時の
+-- 安全側デフォルトは28日。correctionDaysはこの保持期間を超えると400になるため、下記の
+-- 週次訂正値もデフォルト28日に合わせている。保持期間を変更する場合は、Function設定・
+-- smoke・この値を同じ承認記録で更新する。
+-- pg_netの既定timeout (5秒) はJMA取得に短すぎるため、各http_postでFunctionの上限に
+-- 合わせた120秒を明示する。
+-- Vault APIの詳細はプロジェクトのSupabaseバージョンに合わせて確認する。
+
+-- create extension if not exists pg_cron with schema extensions;
+-- create extension if not exists pg_net with schema extensions;
+
+-- 以下は有効化時にコメントを外す。URLやBearer値をSQLへ直書きしない。
+-- AuthorizationヘッダーはUPDATE_WEATHER_CRON_SECRET用のカスタムBearerであり、
+-- Supabaseのservice-role JWTではない。Function側が検証した後にservice-roleでDBへ接続する。
+-- do $$
+-- begin
+--   perform cron.unschedule(jobid)
+--   from cron.job
+--   where jobname in (
+--     'karidoki-navi-update-weather-morning',
+--     'karidoki-navi-update-weather-retry',
+--     'karidoki-navi-update-weather-correction'
+--   );
+-- end;
+-- $$;
+
+-- select cron.schedule(
+--   'karidoki-navi-update-weather-morning',
+--   '30 21 * * *',
+--   $$
+--   select net.http_post(
+--     url := (
+--       select decrypted_secret
+--       from vault.decrypted_secrets
+--       where name = 'karidoki_navi_project_url'
+--     ) || '/functions/v1/update-weather',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ' || (
+--         select decrypted_secret
+--         from vault.decrypted_secrets
+--         where name = 'karidoki_navi_update_weather_secret'
+--       )
+--     ),
+--     body := '{}'::jsonb,
+--     timeout_milliseconds := 120000
+--   );
+--   $$
+-- );
+
+-- select cron.schedule(
+--   'karidoki-navi-update-weather-retry',
+--   '30 3 * * *',
+--   $$
+--   select net.http_post(
+--     url := (
+--       select decrypted_secret
+--       from vault.decrypted_secrets
+--       where name = 'karidoki_navi_project_url'
+--     ) || '/functions/v1/update-weather',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ' || (
+--         select decrypted_secret
+--         from vault.decrypted_secrets
+--         where name = 'karidoki_navi_update_weather_secret'
+--       )
+--     ),
+--     body := '{"retryOnly":true}'::jsonb,
+--     timeout_milliseconds := 120000
+--   );
+--   $$
+-- );
+
+-- select cron.schedule(
+--   'karidoki-navi-update-weather-correction',
+--   '0 22 * * 0',
+--   $$
+--   select net.http_post(
+--     url := (
+--       select decrypted_secret
+--       from vault.decrypted_secrets
+--       where name = 'karidoki_navi_project_url'
+--     ) || '/functions/v1/update-weather',
+--     headers := jsonb_build_object(
+--       'Content-Type', 'application/json',
+--       'Authorization', 'Bearer ' || (
+--         select decrypted_secret
+--         from vault.decrypted_secrets
+--         where name = 'karidoki_navi_update_weather_secret'
+--       )
+--     ),
+--     body := '{"correctionDays":28}'::jsonb,
+--     timeout_milliseconds := 120000
+--   );
+--   $$
+-- );
+
+-- Enable only after a dry run and review of cron.job / net._http_response:
+-- select jobid, jobname, schedule, active from cron.job
+-- where jobname like 'karidoki-navi-update-weather%';
