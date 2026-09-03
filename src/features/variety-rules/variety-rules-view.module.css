@@ -35,7 +35,9 @@
 
 .backLink {
   flex: 0 0 auto;
-  min-height: 40px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   padding: 10px 12px;
   border: 1px solid #cbd9c3;
   border-radius: 10px;
@@ -213,7 +215,7 @@
 .addButton,
 .cancelButton,
 .saveButton {
-  min-height: 36px;
+  min-height: 44px;
   padding: 7px 10px;
   border-radius: 9px;
   font-size: 0.68rem;
@@ -331,7 +333,7 @@
 .wideField input,
 .wideField textarea {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   padding: 8px 9px;
   border: 1px solid #c6d4c1;
   border-radius: 8px;

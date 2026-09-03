@@ -117,7 +117,23 @@
   max-width: calc(100% - 20px);
   border-radius: 7px;
   background: rgba(251, 253, 247, 0.88);
+  min-height: 44px;
+  padding: 8px 10px;
   font-size: 9px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.mapFrame :global(.maplibregl-ctrl-attrib a) {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.mapFrame :global(.maplibregl-ctrl-attrib-button) {
+  width: 44px;
+  min-height: 44px;
 }
 
 @media (min-width: 720px) {

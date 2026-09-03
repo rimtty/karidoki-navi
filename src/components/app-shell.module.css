@@ -24,6 +24,8 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  min-height: 44px;
+  padding: 6px 0;
   color: var(--forest-900);
   font-size: 0.96rem;
   font-weight: 850;
@@ -99,7 +101,7 @@
 }
 
 .accountPanel button {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 11px;
   border: 1px solid #c4d4bd;
   border-radius: 9px;

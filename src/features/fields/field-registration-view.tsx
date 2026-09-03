@@ -503,19 +503,22 @@ export function FieldRegistrationView({
           </div>
           {!hasSelection && <p className={styles.inlineWarning} role="alert">先に区画を選択してください。</p>}
           <div className={styles.formFields}>
-            <label>
+            <label htmlFor="field-name">
               <span>圃場名 <em>必須</em></span>
               <input
+                id="field-name"
                 type="text"
                 value={draft.fieldName}
                 onChange={(event) => setDraft((current) => ({ ...current, fieldName: event.target.value }))}
                 placeholder="例：東の田んぼ"
                 autoComplete="off"
+                required
               />
             </label>
-            <label>
+            <label htmlFor="field-variety">
               <span>品種 <em>必須</em></span>
               <select
+                id="field-variety"
                 value={draft.variety}
                 onChange={(event) => {
                   const variety = event.target.value as RiceVariety | "";
@@ -526,6 +529,7 @@ export function FieldRegistrationView({
                     varietyId: option?.id ?? "",
                   }));
                 }}
+                required
               >
                 <option value="">品種を選択してください</option>
                 {varieties.map((variety) => (
@@ -535,9 +539,14 @@ export function FieldRegistrationView({
                 ))}
               </select>
             </label>
-            <label>
+            <label htmlFor="field-heading-date">
               <span>出穂日 <small>任意</small></span>
-              <input type="date" value={draft.headingDate} onChange={(event) => setDraft((current) => ({ ...current, headingDate: event.target.value }))} />
+              <input
+                id="field-heading-date"
+                type="date"
+                value={draft.headingDate}
+                onChange={(event) => setDraft((current) => ({ ...current, headingDate: event.target.value }))}
+              />
               <small>未設定でも登録できます。あとから編集可能です。</small>
             </label>
           </div>

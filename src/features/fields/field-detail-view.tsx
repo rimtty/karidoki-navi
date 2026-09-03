@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FieldMap } from "./field-map";
 import {
@@ -53,6 +53,10 @@ function FieldDetailContent({
 }) {
   const router = useRouter();
   const [showHarvest, setShowHarvest] = useState(false);
+  const harvestButtonRef = useRef<HTMLButtonElement | null>(null);
+  const harvestPanelRef = useRef<HTMLDivElement | null>(null);
+  const harvestCloseRef = useRef<HTMLButtonElement | null>(null);
+  const harvestDateRef = useRef<HTMLInputElement | null>(null);
   const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "2026-09-03");
   const [harvested, setHarvested] = useState(Boolean(field.harvestDate));
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,6 +73,57 @@ function FieldDetailContent({
     if (field.status === "soon") return "適期開始に近づいています。直近の気温傾向は参考値です。";
     return "登熟中です。積算値は目安として確認してください。";
   }, [field.status]);
+  const showHarvestDialogPreviously = useRef(false);
+
+  function closeHarvestPanel() {
+    setShowHarvest(false);
+  }
+
+  useEffect(() => {
+    if (showHarvest) {
+      window.setTimeout(() => {
+        if (harvestDateRef.current) {
+          harvestDateRef.current.focus();
+        } else {
+          harvestCloseRef.current?.focus();
+        }
+      }, 0);
+    } else if (showHarvestDialogPreviously.current) {
+      harvestButtonRef.current?.focus();
+    }
+    showHarvestDialogPreviously.current = showHarvest;
+  }, [showHarvest]);
+
+function handleHarvestDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!showHarvest || !harvestPanelRef.current) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeHarvestPanel();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = Array.from(
+      harvestPanelRef.current.querySelectorAll<HTMLElement>(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      ),
+    ).filter((element) => !element.hasAttribute("disabled"));
+    if (focusable.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+    if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
 
   async function registerHarvest() {
     if (!harvestDate || harvestPendingRef.current) return;
@@ -135,7 +190,11 @@ function FieldDetailContent({
         <div className={styles.successNotice} role="status">
           <span aria-hidden="true">✓</span>
           <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} aria-label="通知を閉じる">
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="通知を閉じる"
+          >
             ×
           </button>
         </div>
@@ -283,34 +342,59 @@ function FieldDetailContent({
         <button className={styles.secondaryAction} type="button" onClick={() => setNotice("観測地点の変更は準備中です。現在は開発用地点を表示しています。")}>
           観測地点を変更
         </button>
-        <button className={styles.primaryAction} type="button" onClick={() => setShowHarvest(true)} disabled={harvested}>
+        <button
+          ref={harvestButtonRef}
+          className={styles.primaryAction}
+          type="button"
+          onClick={() => setShowHarvest(true)}
+          disabled={harvested}
+        >
           {harvested ? "収穫記録済み" : "収穫を登録"}
         </button>
       </section>
 
       {showHarvest && (
-        <div className={styles.harvestPanel} role="dialog" aria-modal="true" aria-labelledby="harvest-heading">
+        <div
+          ref={harvestPanelRef}
+          className={styles.harvestPanel}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="harvest-heading"
+          onKeyDown={handleHarvestDialogKeyDown}
+        >
           <div className={styles.panelHeading}>
             <div>
               <p className={styles.cardKicker}>HARVEST RECORD</p>
               <h2 id="harvest-heading">収穫を登録</h2>
             </div>
-            <button className={styles.panelClose} type="button" onClick={() => setShowHarvest(false)} aria-label="収穫登録を閉じる">
+            <button
+              ref={harvestCloseRef}
+              className={styles.panelClose}
+              type="button"
+              onClick={closeHarvestPanel}
+              aria-label="収穫登録を閉じる"
+            >
               ×
             </button>
           </div>
           <p className={styles.harvestHelp}>収穫日と、その時点の積算値を履歴として保存します。</p>
           {harvestError && <p className={styles.inlineWarning} role="alert">{harvestError}</p>}
-          <label className={styles.dateField}>
+          <label className={styles.dateField} htmlFor="harvest-date">
             <span>収穫日</span>
-            <input type="date" value={harvestDate} onChange={(event) => setHarvestDate(event.target.value)} />
+            <input
+              id="harvest-date"
+              ref={harvestDateRef}
+              type="date"
+              value={harvestDate}
+              onChange={(event) => setHarvestDate(event.target.value)}
+            />
           </label>
           <div className={styles.harvestPreview}>
             <span>収穫時積算気温</span>
             <strong>{formatTemp(field.accumulatedTempC)}</strong>
           </div>
           <div className={styles.harvestActions}>
-            <button className={styles.secondaryAction} type="button" onClick={() => setShowHarvest(false)}>
+            <button className={styles.secondaryAction} type="button" onClick={closeHarvestPanel}>
               キャンセル
             </button>
             <button className={styles.primaryAction} type="button" onClick={registerHarvest} disabled={!harvestDate || harvestPending}>

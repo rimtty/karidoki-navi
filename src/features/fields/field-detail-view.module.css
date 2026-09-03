@@ -73,14 +73,20 @@
 
 .successNotice button,
 .panelClose {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   margin-left: auto;
   border: 0;
   color: #3c6e45;
   background: transparent;
   font-size: 1.2rem;
   cursor: pointer;
+}
+
+.successNotice button:focus-visible,
+.panelClose:focus-visible {
+  outline: 3px solid rgba(61, 126, 73, 0.33);
+  outline-offset: 3px;
 }
 
 .statusCard {

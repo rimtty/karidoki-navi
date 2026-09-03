@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useRef, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { getAuthErrorMessage } from "./auth-errors";
 import { createClient } from "@/lib/supabase/client";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
@@ -33,6 +39,9 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const pendingRef = useRef(false);
+  const loginModeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const signupModeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const authFormId = useId();
   const [error, setError] = useState(initialError);
   const [message, setMessage] = useState(initialMessage);
   const safeNextPath = getSafeRedirectPath(nextPath);
@@ -44,6 +53,22 @@ export function LoginForm({
     setMode(nextMode);
     setError(null);
     setMessage(null);
+  }
+
+  function handleModeKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    let nextMode: AuthMode | null = null;
+    if (event.key === "ArrowLeft" || event.key === "Home") {
+      nextMode = "login";
+    } else if (event.key === "ArrowRight" || event.key === "End") {
+      nextMode = "signup";
+    }
+    if (!nextMode) return;
+
+    event.preventDefault();
+    switchMode(nextMode);
+    const nextButton =
+      nextMode === "login" ? loginModeButtonRef.current : signupModeButtonRef.current;
+    nextButton?.focus();
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -156,24 +181,28 @@ export function LoginForm({
 
   return (
     <div className={styles.formRoot} aria-busy={isPending}>
-      <div className={styles.modeSwitcher} role="tablist" aria-label="認証方法">
+      <div className={styles.modeSwitcher} role="group" aria-label="認証方法">
         <button
+          ref={loginModeButtonRef}
           className={mode === "login" ? styles.modeButtonActive : styles.modeButton}
           type="button"
-          role="tab"
-          aria-selected={mode === "login"}
+          aria-pressed={mode === "login"}
+          aria-controls={authFormId}
           disabled={isPending}
           onClick={() => switchMode("login")}
+          onKeyDown={handleModeKeyDown}
         >
           ログイン
         </button>
         <button
+          ref={signupModeButtonRef}
           className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
           type="button"
-          role="tab"
-          aria-selected={mode === "signup"}
+          aria-pressed={mode === "signup"}
+          aria-controls={authFormId}
           disabled={isPending}
           onClick={() => switchMode("signup")}
+          onKeyDown={handleModeKeyDown}
         >
           新規登録
         </button>
@@ -206,7 +235,7 @@ export function LoginForm({
         <span>または</span>
       </div>
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+      <form id={authFormId} className={styles.form} onSubmit={handleSubmit} noValidate>
         <label className={styles.field} htmlFor="auth-email">
           メールアドレス
         </label>
