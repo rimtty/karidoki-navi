@@ -137,7 +137,7 @@ iPhone SafariとAndroid Chromeの実機受入、ホーム画面インストー�
 
 本番リリースは [docs/release-runbook.md](docs/release-runbook.md) の順序（DB、Edge Function、bounded smoke、Vault/Cron、MAFF、Vercel、Auth callback、監視／rollback）で実施します。本番外部状態はこのリポジトリのテストから変更しません。
 
-Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTPはSupabaseへ設定済みです。東京リージョンのSES本番利用承認とカスタムMAIL FROM設定は完了しており、実メール配送は管理者が確認する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
+Google OAuthと確認メール／パスワード再設定用のAmazon SES SMTPはSupabaseへ設定済みです。東京リージョンのSES本番利用承認、カスタムMAIL FROM設定、SMTP接続テストメールの実配送まで完了しており、アプリからの新規登録確認とパスワード再設定は管理者が縦通し確認する必要があります。JMA地点別JSONは非保証のため、障害時は手動CSV経路を使えるようにします。公式の品種別閾値は未設定のままです。
 
 リポジトリ内の合否と本番外部ゲートを分けた監査表は [リリース準備監査](docs/release-readiness.md) を参照してください。
 
