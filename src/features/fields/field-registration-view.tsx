@@ -131,7 +131,7 @@ export function FieldRegistrationView({
         year: 2026,
         varietyId: draft.varietyId,
         plantingDate: draft.plantingDate,
-        headingDate: draft.headingDate,
+        headingDate: draft.headingDate || null,
       });
       if (!result.ok) {
         setSaveError(result.message);
@@ -205,19 +205,21 @@ export function FieldRegistrationView({
               onChange={(event) => setDraft((current) => ({ ...current, plantingDate: event.target.value }))} required />
           </label>
           <label className={styles.field} htmlFor="field-heading-date">
-            <span>出穂日 <em>必須</em></span>
+            <span>出穂日 <small>あとで入力できます</small></span>
             <input id="field-heading-date" type="date" value={draft.headingDate} min={draft.plantingDate || undefined}
-              onChange={(event) => setDraft((current) => ({ ...current, headingDate: event.target.value }))} required />
+              aria-describedby="heading-help"
+              onChange={(event) => setDraft((current) => ({ ...current, headingDate: event.target.value }))} />
+            <small id="heading-help">穂が出た日です。まだ分からない場合は空欄で大丈夫です。</small>
           </label>
         </div>
 
         <aside className={styles.helpBox}>
           <span aria-hidden="true">🌡️</span>
-          <div><strong>出穂日から自動で計算します</strong><p>登録後は毎日の平均気温を自動で積み上げます。</p></div>
+          <div><strong>出穂日から自動で計算します</strong><p>出穂日を入力すると、毎日の平均気温を自動で積み上げます。空欄の間は計算しません。</p></div>
         </aside>
         {saveError && <p className={styles.inlineWarning} role="alert">{saveError}</p>}
         <button className={styles.primaryAction} type="submit"
-          disabled={!draft.fieldName.trim() || !draft.varietyId || !draft.plantingDate || !draft.headingDate || savePending}>
+          disabled={!draft.fieldName.trim() || !draft.varietyId || !draft.plantingDate || savePending}>
           {savePending ? "登録しています…" : "この内容で登録する"}
         </button>
       </form>

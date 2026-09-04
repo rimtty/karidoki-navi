@@ -5,7 +5,7 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import { DataLoadError } from "@/components/data-load-error";
 import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
-import { registerHarvestAction } from "@/lib/fields/actions";
+import { registerHarvestAction, updateHeadingAction } from "@/lib/fields/actions";
 import { currentTokyoDate } from "@/domain/dates";
 import { FIELD_STATUS_META, formatDate, formatTemp } from "./fixtures";
 import type { FieldSizeClass, FieldViewModel } from "./view-model";
@@ -17,6 +17,10 @@ const sizeLabels: Record<FieldSizeClass, string> = { small: "小", medium: "中"
 function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; dataSource: "supabase" | "fixture" }) {
   const router = useRouter();
   const [showHarvest, setShowHarvest] = useState(false);
+  const [headingDraft, setHeadingDraft] = useState(field.headingDate ?? "");
+  const [headingPending, setHeadingPending] = useState(false);
+  const headingLock = useRef(false);
+  const [headingNotice, setHeadingNotice] = useState<string | null>(null);
   const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "");
   const [harvested, setHarvested] = useState(Boolean(field.harvestDate));
   const [notice, setNotice] = useState<string | null>(null);
@@ -33,13 +37,14 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
 
   const summary = useMemo(() => {
     if (status === "harvested") return "この田んぼは収穫済みです。";
+    if (!field.headingDate) return "出穂日を入力すると、気温の計算を始めます。";
     if (status === "ready") return "今が刈りどきです。稲と天候を確認しましょう。";
     if (status === "overdue") return "刈りどきを過ぎています。早めに田んぼを確認してください。";
     if (status === "soon") return field.referenceDays !== null ? `刈りどきまで、あと約${field.referenceDays}日です。` : "刈りどきが近づいています。";
     if (status === "growing") return "刈りどき前です。お米が育っています。";
     if (status === "before-heading") return "出穂日を待っています。まだ気温の計算は始まりません。";
     return "この品種の刈りどき設定を確認してください。";
-  }, [field.referenceDays, status]);
+  }, [field.headingDate, field.referenceDays, status]);
 
   useEffect(() => {
     if (showHarvest) {
@@ -120,6 +125,31 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
         </div>
 
         <div className={styles.secondaryColumn}>
+          {!harvested && <section className={styles.infoPanel}>
+            <h2>{field.headingDate ? "出穂日を変更" : "出穂日を登録"}</h2>
+            <p>穂が出た日を入力してください。保存すると気温を再計算します。</p>
+            <form onSubmit={async (event) => {
+              event.preventDefault();
+              if (headingLock.current || !field.seasonId) return;
+              headingLock.current = true;
+              setHeadingPending(true);
+              try {
+                const result = await updateHeadingAction(field.seasonId, headingDraft);
+                setHeadingNotice(result.message);
+                if (result.ok) router.refresh();
+              } finally { headingLock.current = false; setHeadingPending(false); }
+            }}>
+              <label htmlFor="edit-heading">出穂日</label>
+              <input id="edit-heading" type="date" required value={headingDraft}
+                min={field.plantingDate ?? undefined}
+                onChange={(event) => setHeadingDraft(event.target.value)}
+                style={{ display: "block", width: "100%", minHeight: 56, fontSize: "1.25rem", marginBlock: 12 }} />
+              <button className={styles.harvestButton} disabled={headingPending || !headingDraft || dataSource === "fixture"}>
+                {headingPending ? "保存しています…" : "出穂日を保存する"}
+              </button>
+              {headingNotice && <p role="status">{headingNotice}</p>}
+            </form>
+          </section>}
           <section className={styles.infoPanel}>
             <h2>登録内容</h2>
             <dl>
@@ -136,7 +166,7 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
             </dl>
           </section>
 
-          {status === "not-configured" && (
+          {status === "not-configured" && !field.rule && (
             <aside className={styles.settingNotice}>
               <div><strong>刈りどきの基準が未設定です</strong><p>品種に合わせた積算気温の基準を設定してください。</p></div>
               <Link href="/app/settings/variety-rules">設定を見る</Link>

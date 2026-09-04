@@ -316,6 +316,10 @@ export type Database = {
         };
         Returns: Array<Database["public"]["Tables"]["rice_varieties"]["Row"]>;
       };
+      update_season_heading: {
+        Args: { p_season_id: string; p_heading_date: string };
+        Returns: undefined;
+      };
       register_simple_field_with_season: {
         Args: {
           p_idempotency_key: string;

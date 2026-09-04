@@ -42,6 +42,7 @@ const sizeClasses: Record<FieldSizeClass, string> = {
 };
 
 function progressMessage(field: FieldViewModel): string {
+  if (!field.headingDate && field.status !== "harvested") return "出穂日を登録";
   if (field.status === "ready") return "今が刈りどきです";
   if (field.status === "overdue") return "刈りどきを過ぎました";
   if (field.status === "soon") {

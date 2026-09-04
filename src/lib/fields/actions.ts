@@ -16,7 +16,7 @@ export type RegistrationInput = {
   year: number;
   varietyId: string;
   plantingDate: string;
-  headingDate: string;
+  headingDate: string | null;
 };
 
 export type RegistrationActionResult =
@@ -36,6 +36,22 @@ export type HarvestActionResult =
 
 const REGISTRATION_ERROR =
   "田んぼを登録できませんでした。入力内容を確認して再試行してください。";
+
+export async function updateHeadingAction(seasonId: string, headingDate: string) {
+  if (!isLocalDate(headingDate) || !validText(seasonId, 200)) {
+    return { ok: false, message: "出穂日を確認してください。" };
+  }
+  try {
+    const client = await createClient();
+    const { error } = await client.rpc("update_season_heading", {
+      p_season_id: seasonId, p_heading_date: headingDate,
+    });
+    if (error) return { ok: false, message: "保存できませんでした。田植え日以降・同じ年の日付を指定してください。収穫済みの記録は変更できません。" };
+    return { ok: true, message: "出穂日を保存しました。取得済みの気温で再計算しました。" };
+  } catch {
+    return { ok: false, message: "通信状態を確認して、もう一度お試しください。" };
+  }
+}
 const REGISTRATION_AUTH_ERROR =
   "ログイン状態を確認できませんでした。ログインし直して再試行してください。";
 const HARVEST_ERROR =
@@ -84,8 +100,8 @@ export async function registerFieldWithSeasonAction(
     input.year > 2100 ||
     !validText(input.varietyId, 200) ||
     !isLocalDate(input.plantingDate) ||
-    !isLocalDate(input.headingDate) ||
-    input.headingDate < input.plantingDate
+    (input.headingDate !== null && (!isLocalDate(input.headingDate) ||
+    input.headingDate < input.plantingDate))
   ) {
     return {
       ok: false,

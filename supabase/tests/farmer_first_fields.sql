@@ -193,6 +193,29 @@ begin
 end;
 $$;
 
+do $$
+declare r record;
+begin
+  select * into r from public.register_simple_field_with_season(
+    'optional-heading', '出穂日あとで', 'SMALL', 2026::smallint,
+    (select id from public.rice_varieties where name = 'コシヒカリ'),
+    '2026-05-18'::date, null);
+  perform public.update_season_heading(r.crop_season_id, '2026-08-05');
+  if not exists(select 1 from public.crop_seasons where id = r.crop_season_id and heading_date = '2026-08-05') then
+    raise exception 'heading update not persisted';
+  end if;
+  begin
+    perform public.update_season_heading(r.crop_season_id, '2026-05-01');
+    raise exception 'invalid heading accepted';
+  exception when sqlstate '22023' then null; end;
+  perform public.register_harvest(r.crop_season_id, '2026-09-03', null);
+  begin
+    perform public.update_season_heading(r.crop_season_id, '2026-08-06');
+    raise exception 'harvested heading changed';
+  exception when sqlstate '22023' then null; end;
+end;
+$$;
+
 select set_config('request.jwt.claim.sub', 'ffffffff-ffff-4fff-8fff-ffffffffffff', true);
 
 do $$
@@ -203,6 +226,10 @@ begin
   if v_count <> 0 then
     raise exception 'another account could see simple fields';
   end if;
+  begin
+    perform public.update_season_heading((select crop_season_id from simple_result), '2026-08-06');
+    raise exception 'another account could update heading';
+  exception when insufficient_privilege then null; end;
 end;
 $$;
 

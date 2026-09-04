@@ -355,6 +355,23 @@ test("目安を設定した出穂日前の田んぼは未設定ではなく出�
   await expect(fieldTile.getByText("目安を設定", { exact: true })).toHaveCount(0);
 });
 
+test("出穂日を後から登録して再計算できる", async ({ page }) => {
+  await login(page);
+  await page.goto("/app/fields/new/1");
+  await page.getByLabel(/田んぼの名前/).fill("E2E出穂日あとで");
+  await page.getByLabel("品種").selectOption({ label: "あきさかり" });
+  await page.getByLabel(/田植え日/).fill("2026-05-20");
+  await page.getByRole("button", { name: "この内容で登録する" }).click();
+  await expect(page).toHaveURL(/\/app\/fields\/[0-9a-f-]+$/);
+  await expect(page.getByText("出穂日を入力すると、気温の計算を始めます。", { exact: true })).toBeVisible();
+  await page.getByLabel("出穂日", { exact: true }).fill("2026-09-30");
+  await page.getByRole("button", { name: "出穂日を保存する" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "出穂日を保存しました" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("出穂前", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("出穂日", { exact: true })).toHaveValue("2026-09-30");
+});
+
 test("メールログインから田んぼ登録・詳細・収穫・ログアウトまで通る", async ({ page }) => {
   await login(page);
   await expect(page.getByRole("heading", { name: "今日の田んぼ" })).toBeVisible();

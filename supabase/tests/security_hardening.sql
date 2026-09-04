@@ -32,6 +32,7 @@ declare
     'list_account_variety_rules',
     'register_field_with_season',
     'register_simple_field_with_season',
+    'update_season_heading',
     'register_harvest',
     'resolve_variety_rule_for_regions',
     'save_account_variety_rule'
