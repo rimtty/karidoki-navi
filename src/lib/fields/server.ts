@@ -11,6 +11,7 @@ import {
   SUPABASE_CONFIG_ERROR,
 } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
+import { attachAppliedRules } from "./applied-rules";
 import { CONFIRMED_RICE_VARIETY_NAMES } from "@/features/fields/view-model";
 
 export type FieldDataSource = "supabase" | "fixture";
@@ -60,6 +61,16 @@ async function authenticatedClient() {
   return { client, authError: null } as const;
 }
 
+async function withAppliedRules(client: Awaited<ReturnType<typeof createClient>>, fields: FieldViewModel[]) {
+  const ids = fields.flatMap((field) => field.seasonId ? [field.seasonId] : []);
+  if (!ids.length) return fields;
+  const { data, error } = await client.from("season_rule_snapshots")
+    .select("crop_season_id,harvest_start_temp_c,harvest_target_temp_c,harvest_end_temp_c,accumulation_start_offset_days,source_title,source_note")
+    .in("crop_season_id", ids);
+  if (error || !data) throw new Error("Applied rules could not be loaded");
+  return attachAppliedRules(fields, data);
+}
+
 export async function loadFieldMapData(
   year: number,
 ): Promise<FieldDataResult<FieldViewModel[]>> {
@@ -83,7 +94,7 @@ export async function loadFieldMapData(
     }
 
     try {
-      return { data: adaptFieldOverviewRows(data), source: "supabase", error: null };
+      return { data: await withAppliedRules(client, adaptFieldOverviewRows(data)), source: "supabase", error: null };
     } catch (error) {
       if (canUseFixtureFallback() && error instanceof FieldAdapterError) {
         return fixtureResult(FIELD_FIXTURES);
@@ -123,7 +134,7 @@ export async function loadFieldDetailData(
     }
 
     try {
-      const fields = adaptFieldDetailSimpleRows(data);
+      const fields = await withAppliedRules(client, adaptFieldDetailSimpleRows(data));
       return {
         data: fields[0] ?? null,
         source: "supabase",

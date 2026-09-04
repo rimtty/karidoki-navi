@@ -3,6 +3,11 @@ import type { LocalDate } from "./types";
 const LOCAL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MILLISECONDS_PER_DAY = 86_400_000;
 
+/** Calendar date in the pilot region, independent of browser/server timezone. */
+export function currentTokyoDate(now = new Date()): LocalDate {
+  return formatLocalDate(new Date(now.getTime() + 9 * 60 * 60 * 1000));
+}
+
 /**
  * Validate an ISO calendar date without interpreting it in the host's local
  * time zone.

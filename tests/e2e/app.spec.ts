@@ -377,10 +377,18 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await page.goto(fieldUrl);
   await expect(page.getByText("刈りどきの基準が未設定です")).toHaveCount(0);
   await expect(page.getByText("未設定", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("この田んぼの刈り始め", { exact: true })).toBeVisible();
+  await expect(page.getByText("1,000 ℃・日", { exact: true })).toBeVisible();
+  await expect(page.getByText("1,100 ℃・日", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E後から設定する作業ノート", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "この田んぼの収穫を記録" }).click();
   const dialog = page.getByRole("dialog", { name: "収穫日を記録" });
   await expect(dialog).toBeVisible();
+  const tokyoToday = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  await expect(dialog.getByLabel("収穫日")).toHaveValue(tokyoToday);
   await dialog.getByLabel("収穫日").fill(HARVEST_DATE);
   await dialog.getByRole("button", { name: "記録する" }).click();
   await expect(

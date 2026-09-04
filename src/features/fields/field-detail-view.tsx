@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { DataLoadError } from "@/components/data-load-error";
 import { FixtureNotice, QualityNotice } from "@/components/quality-notice";
 import { registerHarvestAction } from "@/lib/fields/actions";
+import { currentTokyoDate } from "@/domain/dates";
 import { FIELD_STATUS_META, formatDate, formatTemp } from "./fixtures";
 import type { FieldSizeClass, FieldViewModel } from "./view-model";
 import styles from "./field-detail-view.module.css";
@@ -15,7 +16,7 @@ const sizeLabels: Record<FieldSizeClass, string> = { small: "小", medium: "中"
 function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; dataSource: "supabase" | "fixture" }) {
   const router = useRouter();
   const [showHarvest, setShowHarvest] = useState(false);
-  const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "2026-09-03");
+  const [harvestDate, setHarvestDate] = useState(field.harvestDate ?? "");
   const [harvested, setHarvested] = useState(Boolean(field.harvestDate));
   const [notice, setNotice] = useState<string | null>(null);
   const [harvestError, setHarvestError] = useState<string | null>(null);
@@ -121,6 +122,11 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
           <section className={styles.infoPanel}>
             <h2>登録内容</h2>
             <dl>
+              {field.rule && <>
+                <div><dt>この田んぼの刈り始め</dt><dd>{field.rule.startTempC.toLocaleString("ja-JP")} ℃・日</dd></div>
+                <div><dt>刈り終わりの目安</dt><dd>{field.rule.endTempC.toLocaleString("ja-JP")} ℃・日</dd></div>
+                <div><dt>目安の出どころ</dt><dd>{field.rule.source}</dd></div>
+              </>}
               <div><dt>田んぼの大きさ</dt><dd>{sizeLabels[field.sizeClass]}</dd></div>
               <div><dt>品種</dt><dd>{field.variety ?? "未設定"}</dd></div>
               <div><dt>田植え日</dt><dd>{formatDate(field.plantingDate)}</dd></div>
@@ -136,7 +142,10 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
             </aside>
           )}
 
-          <button ref={harvestButtonRef} className={styles.harvestButton} type="button" onClick={() => setShowHarvest(true)} disabled={harvested}>
+          <button ref={harvestButtonRef} className={styles.harvestButton} type="button" onClick={() => {
+            setHarvestDate(field.harvestDate ?? currentTokyoDate());
+            setShowHarvest(true);
+          }} disabled={harvested}>
             {harvested ? "収穫を記録済み" : "この田んぼの収穫を記録"}
           </button>
         </div>

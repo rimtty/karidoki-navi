@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { currentTokyoDate } from "../../src/domain/dates";
 import {
   addLocalDays,
   compareLocalDates,
@@ -8,6 +9,12 @@ import {
 } from "../../src/domain";
 
 describe("LocalDate", () => {
+  it("defaults to the Tokyo calendar day across midnight and year boundaries", () => {
+    expect(currentTokyoDate(new Date("2026-09-04T14:59:59Z"))).toBe("2026-09-04");
+    expect(currentTokyoDate(new Date("2026-09-04T15:00:00Z"))).toBe("2026-09-05");
+    expect(currentTokyoDate(new Date("2026-12-31T15:00:00Z"))).toBe("2027-01-01");
+    expect(() => currentTokyoDate(new Date(NaN))).toThrow(RangeError);
+  });
   it("validates real calendar dates", () => {
     expect(isLocalDate("2024-02-29")).toBe(true);
     expect(isLocalDate("2025-02-29")).toBe(false);
