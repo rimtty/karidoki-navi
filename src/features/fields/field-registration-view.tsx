@@ -205,12 +205,12 @@ export function FieldRegistrationView({
               onChange={(event) => setDraft((current) => ({ ...current, plantingDate: event.target.value }))} required />
           </label>
           <label className={styles.field} htmlFor="field-heading-date">
-            <span>出穂日 <small>あとで入力できます</small></span>
+            <span>出穂日 <small>任意</small></span>
             <input id="field-heading-date" type="date" value={draft.headingDate} min={draft.plantingDate || undefined}
               aria-describedby="heading-help"
               onChange={(event) => setDraft((current) => ({ ...current, headingDate: event.target.value }))} />
-            <small id="heading-help">穂が出た日です。まだ分からない場合は空欄で大丈夫です。</small>
           </label>
+          <p id="heading-help" className={styles.headingHelp}>出穂日は、穂が出た日です。あとで入力できるので、まだ分からない場合は空欄で大丈夫です。</p>
         </div>
 
         <aside className={styles.helpBox}>

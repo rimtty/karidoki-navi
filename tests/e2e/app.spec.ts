@@ -207,6 +207,17 @@ test("PCブラウザでは横幅を使って情報を見比べられる", async 
   expect(formBox?.width ?? 0).toBeGreaterThanOrEqual(900);
   expect(nameBox?.x ?? Number.POSITIVE_INFINITY).toBeLessThan(sizeBox?.x ?? 0);
   expect(Math.abs((nameBox?.y ?? 0) - (sizeBox?.y ?? 0))).toBeLessThan(80);
+  for (const width of [1440, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const planting = await page.locator("#field-planting-date").boundingBox();
+    const heading = await page.locator("#field-heading-date").boundingBox();
+    expect(planting).not.toBeNull();
+    expect(heading).not.toBeNull();
+    expect(Math.abs(planting!.height - heading!.height)).toBeLessThan(1);
+    if (width > 480) expect(Math.abs(planting!.y - heading!.y)).toBeLessThan(1);
+    else expect(heading!.y).toBeGreaterThan(planting!.y + planting!.height);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.goto("/app/guide");
   const stepTabsBox = await page.locator('ol[aria-label="使い方の3段階"]').boundingBox();
