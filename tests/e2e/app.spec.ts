@@ -320,6 +320,8 @@ test("目安を設定した出穂日前の田んぼは未設定ではなく出�
   await expect(page.getByText("出穂前", { exact: true })).toBeVisible();
   await expect(page.getByText("出穂日を待っています。まだ気温の計算は始まりません。")).toBeVisible();
   await expect(page.getByText("登録した出穂日")).toBeVisible();
+  await expect(page.getByText("出穂後に計算を始めます", { exact: true })).toBeVisible();
+  await expect(page.getByText("未設定まで", { exact: true })).toHaveCount(0);
   await expect(page.getByText("2026年9月30日", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("刈りどきの基準が未設定です")).toHaveCount(0);
 

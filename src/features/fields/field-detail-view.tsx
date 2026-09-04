@@ -10,6 +10,7 @@ import { currentTokyoDate } from "@/domain/dates";
 import { FIELD_STATUS_META, formatDate, formatTemp } from "./fixtures";
 import type { FieldSizeClass, FieldViewModel } from "./view-model";
 import styles from "./field-detail-view.module.css";
+import { weatherReflectionLabel } from "./weather-reflection";
 
 const sizeLabels: Record<FieldSizeClass, string> = { small: "小", medium: "中", large: "大" };
 
@@ -131,7 +132,7 @@ function FieldDetailContent({ field, dataSource }: { field: FieldViewModel; data
               <div><dt>品種</dt><dd>{field.variety ?? "未設定"}</dd></div>
               <div><dt>田植え日</dt><dd>{formatDate(field.plantingDate)}</dd></div>
               <div><dt>出穂日</dt><dd>{formatDate(field.headingDate)}</dd></div>
-              <div><dt>気温の反映</dt><dd>{formatDate(field.observedThrough)}まで</dd></div>
+              <div><dt>気温の反映</dt><dd>{weatherReflectionLabel(field)}</dd></div>
             </dl>
           </section>
 
