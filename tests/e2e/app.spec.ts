@@ -411,6 +411,12 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await page.goto("/app");
   const progressTile = page.getByRole("link", { name: /E2E久井テスト田んぼ/ });
   await expect(progressTile.getByText("72%", { exact: true })).toBeVisible();
+  const filters = page.getByRole("group", { name: "田んぼの表示を切り替える" });
+  await filters.getByRole("button", { name: /収穫済/ }).click();
+  await expect(page.getByText("この条件に合う田んぼはありません", { exact: true })).toBeVisible();
+  await expect(page.getByText("「登録」から田んぼを追加できます。", { exact: true })).toHaveCount(0);
+  await filters.getByRole("button", { name: /すべて/ }).click();
+  await expect(progressTile.getByText("72%", { exact: true })).toBeVisible();
   await setLocalTestSummary(fieldUrl, 950, "HARVEST_SOON");
   await page.reload();
   await expect(progressTile.getByText("あと50℃", { exact: true })).toBeVisible();

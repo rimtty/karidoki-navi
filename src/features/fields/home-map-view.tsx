@@ -198,8 +198,12 @@ export function HomeMapView({
           ) : (
             <div className={styles.emptyState}>
               <span aria-hidden="true">🌾</span>
-              <strong>表示する田んぼがありません</strong>
-              <p>「登録」から田んぼを追加できます。</p>
+              <strong>{initialFields.length === 0 ? "田んぼがまだ登録されていません" : "この条件に合う田んぼはありません"}</strong>
+              {initialFields.length === 0 ? (
+                <p>「登録」から田んぼを追加できます。</p>
+              ) : (
+                <p>「すべて」を押すと、登録した田んぼを表示できます。</p>
+              )}
             </div>
           )}
         </section>
