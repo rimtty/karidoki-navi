@@ -4,6 +4,29 @@ const PLANTING_DATE = "2026-05-20";
 const HEADING_DATE = "2026-08-01";
 const HARVEST_DATE = "2026-09-03";
 
+// Controlled persisted summary values test rendering, not weather calculation.
+async function setLocalTestSummary(fieldUrl: string, temperature: number, status: string) {
+  const base = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+  if (base.protocol !== "http:" || !["localhost", "127.0.0.1"].includes(base.hostname)) {
+    throw new Error("Summary fixtures require local Supabase");
+  }
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("Local test credentials missing");
+  const fieldId = new URL(fieldUrl).pathname.split("/").pop();
+  if (!fieldId || !/^[0-9a-f-]{36}$/.test(fieldId)) throw new Error("Invalid test field");
+  const headers = { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
+  const response = await fetch(`${base.origin}/rest/v1/crop_seasons?field_id=eq.${fieldId}&select=id`, { headers });
+  expect(response.ok).toBeTruthy();
+  const seasons = await response.json() as { id: string }[];
+  expect(seasons).toHaveLength(1);
+  const saved = await fetch(`${base.origin}/rest/v1/crop_season_summaries?crop_season_id=eq.${seasons[0].id}`, {
+    method: "PATCH", headers: { ...headers, Prefer: "return=representation" },
+    body: JSON.stringify({ accumulated_temp_c: temperature, maturity_status: status }),
+  });
+  expect(saved.ok).toBeTruthy();
+  expect(await saved.json()).toHaveLength(1);
+}
+
 async function login(page: Page) {
   const email = process.env.E2E_TEST_EMAIL;
   const password = process.env.E2E_TEST_PASSWORD;
@@ -383,6 +406,15 @@ test("メールログインから田んぼ登録・詳細・収穫・ログア�
   await expect(page.getByText("1,000 ℃・日", { exact: true })).toBeVisible();
   await expect(page.getByText("1,100 ℃・日", { exact: true })).toBeVisible();
   await expect(page.getByText("E2E後から設定する作業ノート", { exact: true })).toBeVisible();
+
+  await setLocalTestSummary(fieldUrl, 720, "GROWING");
+  await page.goto("/app");
+  const progressTile = page.getByRole("link", { name: /E2E久井テスト田んぼ/ });
+  await expect(progressTile.getByText("72%", { exact: true })).toBeVisible();
+  await setLocalTestSummary(fieldUrl, 950, "HARVEST_SOON");
+  await page.reload();
+  await expect(progressTile.getByText("あと50℃", { exact: true })).toBeVisible();
+  await page.goto(fieldUrl);
 
   await page.getByRole("button", { name: "この田んぼの収穫を記録" }).click();
   const dialog = page.getByRole("dialog", { name: "収穫日を記録" });
