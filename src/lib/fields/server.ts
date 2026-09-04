@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { attachAppliedRules } from "./applied-rules";
+import { mayShowFieldFixtures } from "./fixture-policy";
 import { CONFIRMED_RICE_VARIETY_NAMES } from "@/features/fields/view-model";
 
 export type FieldDataSource = "supabase" | "fixture";
@@ -32,10 +33,9 @@ const VARIETY_CONTRACT_ERROR =
   "品種マスターを読み込めませんでした。管理者が設定を確認してください。";
 
 function canUseFixtureFallback(): boolean {
-  // Production with a configured Supabase project must surface failures. A
-  // missing configuration is intentionally allowed to keep local UI work
-  // possible, and non-production environments use the explicit DEV notice.
-  return process.env.NODE_ENV !== "production";
+  // Only an unconfigured local UI preview may use examples. Once a database
+  // is configured, auth/RPC/schema failures must remain visible in every env.
+  return mayShowFieldFixtures(process.env.NODE_ENV, Boolean(getSupabasePublicConfig()));
 }
 
 function fixtureResult<T>(data: T): FieldDataResult<T> {
